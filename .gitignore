@@ -1,0 +1,38 @@
+# OS / editor cruft
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+.idea/
+.vscode/
+!.vscode/settings.json.template
+
+# Build artifacts (language-agnostic patterns; users add language-specific ones)
+target/
+build/
+dist/
+node_modules/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Indexes are regenerable per project
+.agentile/INDEX/*
+!.agentile/INDEX/.gitkeep
+
+# Benchmark baselines (kept by users that want history; default ignore)
+scripts/eval/baselines/*.json
+!scripts/eval/baselines/README.md
+
+# TLA+ artifacts
+**/states/
+*_TTrace_*.tla
+
+# Local secrets — never commit
+.env
+.env.*
+!.env.example
+
+# Local Claude Code overrides
+.claude/settings.local.json

@@ -1,0 +1,56 @@
+---
+created: 2026-04-30T03:50:00Z
+branch: main
+author: Saul Loveman + Claude Opus 4.7 (1M context)
+status: template
+---
+
+# CONFIG.md — Canonical Project Constants
+
+> **TEMPLATE.** `bootstrap.sh` will fill this in from the answers you
+> give at project setup. After that, this is the *source of truth* for
+> every immutable constant in your project (versioned IDs, default
+> ports, environment names, etc.). Other docs may reference these
+> values; they may not redefine them.
+
+## Project identity
+
+| Field | Value |
+|---|---|
+| Project name | `<PROJECT_NAME>` |
+| One-line description | `<ONE_LINE>` |
+| Repository | `<REPO_URL>` |
+| License | `<LICENSE>` |
+| Initial author | `<AUTHOR>` |
+
+## Languages and toolchains
+
+| Language | Toolchain | Test command (canonical) |
+|---|---|---|
+| `<lang-1>` | `<toolchain-1>` | `<test-count-command>` |
+| `<lang-2>` | `<toolchain-2>` | `<test-count-command>` |
+
+## Environments
+
+| Environment | Purpose | RPC / endpoint | Stable since |
+|---|---|---|---|
+| `local` | Developer machine | `<localhost-default>` | Day 0 |
+| `<env-2>` | `<purpose>` | `<endpoint>` | `<date>` |
+
+## Versioned constants
+
+(Add project-specific versioned IDs here — e.g., chain IDs, schema
+versions, protocol IDs, well-known addresses. Each entry has a name,
+a value, and a reason it cannot change without a versioned migration.)
+
+## Stability guarantees
+
+Anything in this file is on the **stable surface**. Changing a value
+requires:
+
+1. A versioned migration document under `planset/`.
+2. A sprint that lands the migration with rollback plan.
+3. A note in CHANGELOG.md flagging the change as breaking (or not).
+
+If you find yourself wanting to change a value here mid-sprint, that's
+a signal to file a planset, not to edit this file silently.
