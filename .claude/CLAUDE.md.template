@@ -1,0 +1,137 @@
+<!--
+CLAUDE.md TEMPLATE — Agentile.
+
+Bootstrap.sh copies this file to the project root as `CLAUDE.md` and
+fills in the placeholders. CLAUDE.md is the entry point Claude Code
+reads at session start; it points the agent at the agentile
+framework and binds the per-project rules.
+
+Anything in <ANGLE_BRACKETS> is filled in by bootstrap. Anything in
+{{HANDLEBARS}} is left for the project owner to customize after
+bootstrap. Edit this file freely — it is project-specific from the
+moment bootstrap runs.
+-->
+
+# CLAUDE.md — <PROJECT_NAME>
+
+This file provides guidance to Claude Code when working in this
+repository.
+
+## 🚨 START HERE — Agentile Framework
+
+**Before doing ANY work, read the framework entry point:**
+
+@.agentile/AGENT_ENTRY.md
+
+This repository uses the **Agentile** methodology. All project
+governance, sprint planning, rules, and workflows live in the
+`.agentile/` directory. Key files:
+
+- **Entry point**: `.agentile/AGENT_ENTRY.md`
+- **Constants**: `.agentile/CONFIG.md`
+- **Rules**: `.agentile/rules/CORE_RULES.md` — 13 non-negotiable
+  rules (0–12)
+- **Product spec**: `.agentile/PRODUCT_SPEC.md`
+- **Current work**: `.agentile/sprints/CURRENT.md`
+- **Methodology**: `.agentile/docs/methodology/METHODOLOGY.md`
+
+**GATE: Do NOT write code until you have read AGENT_ENTRY.md and
+CONFIG.md.**
+
+## Project at a glance
+
+| Field | Value |
+|-------|-------|
+| **Project** | <PROJECT_NAME> |
+| **Description** | <PROJECT_DESCRIPTION> |
+| **Primary languages** | <LANGUAGES> |
+| **License** | <LICENSE> |
+| **Framework version** | Agentile <AGENTILE_VERSION> |
+
+## Build & test commands
+
+{{Replace this section with the actual commands once your project
+has them. Example shapes:
+
+  # Build
+  cargo build --release        # Rust
+  npm run build                # Node
+  pip install -e .             # Python
+
+  # Test (canonical — also recorded in .agentile/coverage/baseline.json)
+  cargo test --workspace
+  npm test
+  pytest
+
+  # Lint
+  cargo clippy --all-targets --all-features -D warnings
+  npm run lint
+  ruff check .
+
+  # Format
+  cargo fmt --all
+  npm run format
+
+The canonical test count command is also in
+`.agentile/coverage/baseline.json` under `tests.command` — that's
+what the ratchet enforces. Keep them in sync.}}
+
+## The four ratchets
+
+This project enforces four ratchets via CI (see
+`.agentile/coverage/GATES.md`):
+
+1. **Test count** — never decreases (Rule 3)
+2. **Formal specs** — never decreases (Rule 10)
+3. **CI tripwires** — append-only (Rules 5, 6, 11)
+4. **Frontmatter coverage** — never decreases (Rule 12)
+
+Baselines live in `.agentile/coverage/baseline.json`. Sprint close
+updates them. CI fails the build on regression of any ratchet.
+
+## When to use slash commands
+
+Agentile ships with slash commands under `.claude/commands/`:
+
+| Slash | What it does |
+|-------|-------------|
+| `/sprint kickoff <id> <slug>` | Create a new active sprint from template |
+| `/sprint daily` | Append a daily log entry to the active sprint |
+| `/sprint close` | Seed RETRO.md and print the close-out checklist |
+| `/journal` | Start a new journal entry with proper frontmatter |
+| `/essay` | Start a new essay with proper frontmatter |
+| `/case-study` | Start a new case study with proper frontmatter |
+| `/claim-grade` | Run the AI claim grader on a piece of text |
+| `/audit-drive` | Walk through the audit-driven sprint workflow |
+| `/ratchet-check` | Run all four ratchet checks locally |
+
+Slash commands are convenience wrappers around `scripts/sprint.sh`
+and `scripts/ci/check_*.py` — anything you can do via slash, you can
+do via shell. The methodology runs without slash commands; they're
+ergonomics.
+
+## Commit + PR conventions
+
+- Conventional commits with WP reference (Rule 4):
+  `feat(WP-3.2): add ECVRF proposer election`
+- PRs reference the sprint WP in the description (template at
+  `.github/PULL_REQUEST_TEMPLATE.md` if the project ships one)
+- Co-Authored-By footer when AI-assisted
+
+## Project-specific rules
+
+{{Add project-specific guidance here. Examples:
+
+  - "Always run `cargo bench` after changes to core/consensus/"
+  - "Schema migrations require an ADR and a paired rollback script"
+  - "GUI changes need a screenshot in the PR body"
+
+Don't duplicate things that are already in
+.agentile/rules/CORE_RULES.md — those bind everywhere. Use this
+section for project-specific extensions.}}
+
+## See also
+
+- `README.md` — top-level project readme
+- `INSTALL.md` — detailed setup walkthrough
+- `.agentile/AGENT_ENTRY.md` — the universal agent entry point

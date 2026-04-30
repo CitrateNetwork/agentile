@@ -2,6 +2,85 @@
 
 Notable changes to the Agentile skeleton. Versioned per semver.
 
+## [v1.0.0-rc1] — 2026-04-30
+
+**Phase 6 (Claude tuning + bootstrap script + READMEs).**
+
+The skeleton is now installable end-to-end. A fresh machine plus
+`git clone` plus `./bootstrap.sh` produces a working agentile-equipped
+project in under five minutes.
+
+### Added
+
+- **`.claude/CLAUDE.md.template`** — project-level guidance for
+  Claude Code, with placeholders bootstrap fills in (project name,
+  description, languages, license, agentile version).
+- **7 slash commands** under `.claude/commands/`:
+  - `/sprint` — wraps `scripts/sprint.sh` (kickoff, daily, close,
+    status, index, backfill)
+  - `/journal`, `/essay`, `/case-study` — seed dated docs with
+    Rule-12 frontmatter
+  - `/claim-grade` — pipe text through the AI grader
+  - `/ratchet-check` — run all four ratchet checks locally
+  - `/audit-drive` — walk through the audit-driven sprint workflow
+- **4 subagents** under `.claude/agents/`:
+  - `methodology-guide` — answers "how does the framework want me
+    to do X?"
+  - `tripwire-author` — drafts a new Semgrep rule or check_*.py
+    from an audit finding
+  - `claim-grader` — interprets the AI claim grader's output
+  - `journal-coach` — coaches journal entries at sprint boundaries
+- **4 hooks** under `.claude/hooks/`:
+  - `pre-commit-frontmatter.sh` — Rule 12 enforcement at commit
+    time on staged `.md` files
+  - `pre-commit-claim-grade.sh` — soft-gate AI grade of commit
+    messages (informational; `CLAIM_GRADE_STRICT=1` to block)
+  - `pre-merge-data-source.sh` — Rule 11 heuristic before local
+    merges (informational; `DATA_SOURCE_STRICT=1` to block)
+  - `post-commit-journal-prompt.sh` — gentle nudge to journal at
+    sprint boundaries (commit subject contains "kickoff" or "RETRO"
+    or "close")
+- **`.claude/settings.json.template`** — wires the hooks via Claude
+  Code's `PreToolUse` event and pre-allows harmless read-only Bash
+  commands (`git status`, `git log`, sprint CLI, ratchet scripts).
+- **`bootstrap.sh`** — interactive (or `--non-interactive`) setup:
+  fills CONFIG/PRODUCT_SPEC/CLAUDE.md from templates, renames the
+  Sprint 0 placeholder to today's date, seeds BASELINE.md +
+  baseline.json, installs git hooks, runs the indexer, and commits
+  the bootstrap.
+- **`README.md`** rewritten — quick start, framework structure,
+  four ratchets table, 13 rules table, adoption checklist, license,
+  acknowledgments.
+- **`INSTALL.md`** — detailed walkthrough: prerequisites, three
+  ways to get the skeleton into your repo, step-by-step setup,
+  CI configuration, hard-mode opt-in for soft gates,
+  troubleshooting, upstream-update workflow.
+
+### Notes
+
+- The skeleton is **v1.0.0-rc1**, not v1.0.0. Bumping to v1.0.0
+  requires the first-test-project step from the rollout plan
+  (adopt the skeleton on a real project, capture pain points,
+  iterate). That work happens in a separate sprint.
+- All Phase 1–5 outputs remain in place; this phase added the
+  install/operate surface that makes them usable.
+- No breaking changes from v0.5.0-rc1 — all additions, no
+  modifications to previously-shipped files.
+
+### Skeleton rollout: complete
+
+The six-phase rollout plan documented in
+`.agentile/planset/2026-04-30-phase-handoffs/PHASE_2_HANDOFF.md`
+(parent project) and `.agentile/planset/2026-04-30-agentile-skeleton/06_ROLLOUT.md`
+(parent project) closed in six sessions:
+
+- Phase 1 (foundation tier port) — `91087c2`, v0.1.0-rc1
+- Phase 2 (templates + workflows + coverage gates + formal scaffold) — `296cbdf`, v0.2.0-rc1
+- Phase 3 (indexer scripts + sprint CLI) — `0d96fc2`, v0.3.0-rc1
+- Phase 4 (CI tripwires + ratchet workflows) — `dc8616d`, v0.4.0-rc1
+- Phase 5 (AI grading + human eval + benchmark harness) — `63a80d1`, v0.5.0-rc1
+- Phase 6 (Claude tuning + bootstrap + READMEs) — this commit, v1.0.0-rc1
+
 ## [v0.5.0-rc1] — 2026-04-30
 
 **Phase 5 (AI grading + human eval + benchmark harness — shadow mode).**

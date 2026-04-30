@@ -1,0 +1,33 @@
+{
+  "$schema_comment": "Claude Code settings. Bootstrap.sh copies this to .claude/settings.json (gitignored) so user-level customization doesn't end up in the project's git history. The hooks below are wired by bootstrap.sh's --install-hooks step; remove a hook here if you don't want it. The Claude Code docs at https://docs.claude.com/en/docs/claude-code/hooks describe the full hook event vocabulary.",
+
+  "hooks": {
+    "$comment": "Hook configuration is project-specific — these are sensible defaults for a fresh agentile project. Add or remove as needed.",
+    "PreToolUse": [
+      {
+        "$comment": "Run frontmatter check before any Edit/Write tool call that touches .md files under .agentile/.",
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PROJECT_DIR}/.claude/hooks/pre-commit-frontmatter.sh"
+          }
+        ]
+      }
+    ]
+  },
+
+  "$tool_permissions_comment": "Pre-allow harmless read-only commands so Claude Code doesn't prompt for them every session. Tighten or expand to taste.",
+  "permissions": {
+    "allow": [
+      "Bash(git status:*)",
+      "Bash(git log:*)",
+      "Bash(git diff:*)",
+      "Bash(git branch:*)",
+      "Bash(scripts/sprint.sh status)",
+      "Bash(scripts/sprint.sh index)",
+      "Bash(scripts/ci/check_*.py:*)",
+      "Bash(scripts/index/build_*.py:*)"
+    ]
+  }
+}
