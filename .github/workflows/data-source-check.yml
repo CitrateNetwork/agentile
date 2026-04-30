@@ -1,0 +1,60 @@
+name: Data Source Check
+
+# Rule 11 heuristic: every IPC command / RPC method / service handler
+# changed in a PR should have a `data source: <named source>` comment
+# within 6 lines above its declaration.
+#
+# Shadow mode: the script always exits 0 unless `--strict` is passed,
+# and the workflow runs without it. The check posts a PR comment
+# listing endpoints that lack a data-source comment; humans review.
+#
+# Why shadow: this heuristic produces false positives (a regex can't
+# tell the difference between a brand-new endpoint and a renamed one
+# whose data-source comment is preserved elsewhere). Treating it as
+# a hard gate would cost more than it catches. Treating it as a
+# pointed comment that humans review is exactly what it's good at.
+
+on:
+  pull_request:
+    paths:
+      - '**/*.rs'
+      - 'scripts/eval/data_source_check.py'
+      - '.github/workflows/data-source-check.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: data-source-check-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Data sources named (Rule 11, shadow mode)
+    runs-on: ubuntu-latest
+    continue-on-error: true   # SHADOW MODE
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Run data-source check
+        run: |
+          ./scripts/eval/data_source_check.py \
+            --base "${{ github.event.pull_request.base.sha }}" \
+            --out-md /tmp/data-source.md
+
+      - name: Post comment
+        if: ${{ hashFiles('/tmp/data-source.md') != '' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh pr comment "${{ github.event.pull_request.number }}" \
+            --body-file /tmp/data-source.md

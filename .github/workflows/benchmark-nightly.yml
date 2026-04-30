@@ -1,0 +1,74 @@
+name: Benchmark Nightly
+
+# Runs the benchmark harness on a schedule (default: 03:00 UTC daily)
+# and on workflow_dispatch. Compares against the canonical baseline
+# at scripts/eval/baselines/canonical.json (if present); regressions
+# show up as PR comments via separate triggers, not from this scheduled
+# job.
+#
+# SHADOW MODE: the regression check uses `--threshold 10` without
+# `--strict`, so the workflow always exits 0. Even severe regressions
+# are informational (issue comments + workflow artifacts). To opt
+# into hard-block mode after the project's calibration period:
+#
+#   1. Add `--strict` to the check_regression.py invocation
+#   2. Add the regression-check job as a required check in branch
+#      protection rules
+#
+# Until then, the only person watching is the project owner reading
+# the artifact summary.
+
+on:
+  schedule:
+    - cron: '0 3 * * *'   # 03:00 UTC daily
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: benchmark-nightly
+  cancel-in-progress: false   # Let an in-flight run finish before starting a new one.
+
+jobs:
+  bench:
+    name: Run benchmark harness
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      # Project-specific toolchain setup goes here. The skeleton can't
+      # know whether the benchmarks need cargo, node, python, etc.
+      # Example:
+      #   - name: Set up Rust
+      #     uses: dtolnay/rust-toolchain@stable
+
+      - name: Run benchmark harness
+        run: ./scripts/eval/benchmark_harness.sh
+
+      - name: Compare against canonical baseline
+        if: hashFiles('scripts/eval/baselines/canonical.json') != ''
+        run: |
+          ./scripts/eval/check_regression.py \
+            --baseline scripts/eval/baselines/canonical.json \
+            --current scripts/eval/baselines/latest.json \
+            --threshold 10 \
+            --out-md /tmp/regression.md
+
+      - name: Upload run artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-${{ github.run_id }}
+          path: |
+            scripts/eval/baselines/*.json
+            /tmp/regression.md
+          retention-days: 90
+        if: always()

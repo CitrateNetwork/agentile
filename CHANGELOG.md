@@ -2,6 +2,66 @@
 
 Notable changes to the Agentile skeleton. Versioned per semver.
 
+## [v0.5.0-rc1] — 2026-04-30
+
+**Phase 5 (AI grading + human eval + benchmark harness — shadow mode).**
+
+### Added
+
+- **AI claim grader** under `scripts/ai/` (Python 3, stdlib-only):
+  - `prompts/claim_grader.md` — versioned prompt with `prompt_version`
+    in frontmatter, scoring rubric, prompt-injection guardrails.
+  - `grade_claim.py` — runner for a single claim string. Auto-selects
+    Anthropic (Claude Haiku 4.5) or OpenAI (gpt-4o-mini); returns
+    informational no-op JSON if no API key is configured.
+  - `grade_pr.py` — aggregates per-PR grading (title + body + commits),
+    emits a markdown summary suitable for posting as a PR comment.
+    Supports `--strict` and `--threshold` for hard-mode opt-in.
+  - `README.md` — provider selection, prompt versioning, hard-mode opt-in.
+- **Human eval + data-source check** under `scripts/eval/`:
+  - `human_eval_protocol.md` — light vs full eval procedure for sprint
+    close, audit closure, and security-sensitive PRs.
+  - `data_source_check.py` — Rule 11 heuristic; flags endpoints
+    (`#[tauri::command]`, `#[rpc]`, `pub async fn handler_*`, etc.)
+    that lack a `data source: ...` comment within 6 lines above.
+- **Benchmark harness** under `scripts/eval/`:
+  - `benchmark_harness.sh` — runs every executable in `scenarios/`,
+    parses `BENCH <metric> <value> [unit]` lines, aggregates into a
+    timestamped JSON snapshot under `baselines/`.
+  - `check_regression.py` — direction-aware comparison (lower-better
+    for latency suffixes, higher-better for throughput suffixes;
+    overridable via `direction.json`). `--threshold` / `--strict`
+    for hard-mode opt-in.
+  - `scenarios/README.md` — adapter contract (BENCH-line protocol,
+    examples for bash / Python / cargo-bench wrappers).
+  - `baselines/README.md` — file format, retention policy, how to
+    promote a run to canonical baseline.
+  - `README.md` — how the four-ratchet model + AI grader + benchmark
+    harness compose into the full enforcement layer.
+- **Three GitHub Actions workflows** (all SHADOW MODE):
+  - `claim-grade.yml` — runs `grade_pr.py` on every PR; posts
+    summary comment; never blocks merge until `--strict` is added.
+  - `data-source-check.yml` — runs the Rule 11 heuristic on Rust
+    diffs; posts comment when endpoints lack data-source comments.
+  - `benchmark-nightly.yml` — schedules the harness daily at
+    03:00 UTC; uploads JSON + regression report as 90-day artifact.
+
+### Notes
+
+- Shadow mode means: jobs use `continue-on-error: true` and the
+  scripts default to soft-pass (exit 0 even on findings, returning
+  the report via comment/artifact). Hard-mode opt-in after the 2-week
+  calibration period — same pattern across all three new systems.
+- All Phase 5 tools work with zero configuration on a fresh skeleton:
+  no API keys → grader returns informational JSON; no scenarios →
+  harness writes empty result file; no baseline → regression check
+  is a no-op.
+- Tripwire ratchet count unchanged (still 9): Phase 5 graders are
+  soft gates, not tripwires; they do not enter the count-of-active-
+  tripwires ratchet.
+- Phase 6 (`.claude/` slash commands + `bootstrap.sh` + INSTALL.md)
+  closes out the skeleton.
+
 ## [v0.4.0-rc1] — 2026-04-30
 
 **Phase 4 (CI tripwires + ratchet checks + GitHub Actions).**

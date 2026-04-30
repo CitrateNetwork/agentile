@@ -1,0 +1,72 @@
+name: Claim Grader
+
+# Shadow-mode AI grader for PR claim compression. Reads PR title +
+# body + commit messages, runs each through the claim-grader prompt,
+# and posts a single comment summarizing the scores.
+#
+# Shadow mode: this workflow uses `continue-on-error: true` on the
+# grading job. The PR is NEVER blocked by a low score — only commented.
+# After the project's 2-week calibration period, the project owner
+# can opt into strict mode by:
+#   - Removing `continue-on-error: true`
+#   - Adding `--strict --threshold 5` (or chosen threshold) to the
+#     grade_pr.py invocation
+#
+# Provider: defaults to Anthropic via ANTHROPIC_API_KEY repo secret.
+# Falls back to OpenAI via OPENAI_API_KEY. If neither secret is set,
+# the grader returns no-op informational output without failing.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  workflow_dispatch:
+    inputs:
+      pr:
+        description: PR number to grade
+        required: true
+
+permissions:
+  contents: read
+  pull-requests: write   # required to post comments
+
+concurrency:
+  group: claim-grade-${{ github.event.pull_request.number || github.event.inputs.pr }}
+  cancel-in-progress: true
+
+jobs:
+  grade:
+    name: Grade PR claims (shadow mode)
+    runs-on: ubuntu-latest
+    continue-on-error: true   # SHADOW MODE — remove to block on low scores
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Run grader
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          pr_num="${{ github.event.pull_request.number || github.event.inputs.pr }}"
+          ./scripts/ai/grade_pr.py --pr "$pr_num" --out-json /tmp/grade.json
+          # Extract the markdown summary for the PR comment.
+          python3 -c "import json; d=json.load(open('/tmp/grade.json')); print(d['summary_md'])" > /tmp/grade.md
+
+      - name: Post comment
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [[ -s /tmp/grade.md ]]; then
+            gh pr comment "${{ github.event.pull_request.number || github.event.inputs.pr }}" \
+              --body-file /tmp/grade.md
+          else
+            echo "No grade summary produced; skipping comment."
+          fi
