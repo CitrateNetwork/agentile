@@ -2,6 +2,53 @@
 
 Notable changes to the Agentile skeleton. Versioned per semver.
 
+## [v0.3.0-rc1] — 2026-04-30
+
+**Phase 3 (indexer scripts + sprint CLI).**
+
+### Added
+
+- **Indexer scripts** under `scripts/index/` (Python 3, no third-party
+  deps), ported from the source project and sanitized for project-
+  agnostic use:
+  - `_common.py` — shared helpers: `find_project_root` walks upward
+    for `.agentile/`, plus `parse_frontmatter` and `to_utc_iso`.
+  - `build_agentile_index.py` — chronological index of every `.md`
+    under `.agentile/`. Emits `INDEX_CHRONOLOGICAL.md`,
+    `INDEX_BY_CATEGORY.md`, `INDEX_RAW.tsv`, and
+    `NAMING_INCONSISTENCIES.md`.
+  - `backfill_frontmatter.py` — adds Rule-12 frontmatter to docs
+    that predate the rule, sourcing `created` from git first-commit
+    time (filesystem mtime fallback for untracked files).
+  - `build_rename_plan.py` / `apply_rename_plan.py` — plan-then-
+    apply migration for journal/essay/case-study filenames to the
+    `YYYY-MM-DDTHHMM_<slug>.md` convention.
+  - `build_sprint_rename_plan.py` / `apply_sprint_rename_plan.py` /
+    `rewrite_sprint_xrefs.py` — three-step sprint-folder rename
+    pipeline with cross-reference rewrite (idempotent via
+    negative-lookbehind regex).
+  - `scripts/index/README.md` — when to run each script, output
+    locations, sequencing rules, empty-`.agentile/` behavior.
+- **Sprint CLI** at `scripts/sprint.sh` — agent-agnostic Bash wrapper:
+  `kickoff <ID> <slug>` seeds a new active sprint from
+  `templates/SPRINT_TEMPLATE.md` with frontmatter pre-filled;
+  `daily` appends a dated entry to the active sprint's DAILY.md;
+  `close` seeds RETRO.md and prints the close-out checklist;
+  `index` and `backfill` proxy the underlying Python tools;
+  `status` shows project root and active sprints.
+
+### Notes
+
+- All scripts auto-discover the project root by walking upward from
+  their own location. Invoke from any working directory.
+- Scripts handle empty / near-empty `.agentile/` gracefully — the
+  skeleton itself was used as a smoke test (29 docs, 100% Rule-12
+  coverage at day zero).
+- `.agentile/INDEX/` outputs are auto-generated and gitignored;
+  the directory's `.gitkeep` survives.
+- No CI / GitHub Actions wiring this phase. CI tripwires and ratchet
+  workflows ship in Phase 4.
+
 ## [v0.2.0-rc1] — 2026-04-30
 
 **Phase 2 (templates + workflows + coverage gates + formal scaffold).**
