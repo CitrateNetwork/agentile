@@ -1,0 +1,51 @@
+name: Audit Immutability
+
+# Rule 6 enforcer — audits are dated and immutable. Any modification
+# (or deletion, or rename) of a file under .agentile/audits/ that
+# already exists on the base branch fails the build.
+#
+# To correct an audit finding, write a NEW dated audit at
+# .agentile/audits/YYYY-MM-DD-<slug>/ that references the original.
+# Never edit the original.
+
+on:
+  pull_request:
+    paths:
+      - '.agentile/audits/**'
+      - '.github/workflows/audit-immutability.yml'
+      - 'scripts/ci/check_audit_immutability.py'
+  push:
+    branches: [main]
+    paths:
+      - '.agentile/audits/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: audit-immutability-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Audit files are immutable (Rule 6)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Run check_audit_immutability.py
+        run: |
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            base="${{ github.event.pull_request.base.sha }}"
+          else
+            base="${{ github.event.before }}"
+          fi
+          ./scripts/ci/check_audit_immutability.py --since "$base"

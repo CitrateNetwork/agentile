@@ -1,0 +1,46 @@
+# no-stub-default-constructor — Rule 2 enforcer.
+#
+# Catches the "Testing Backend Loophole" (THE_RULE_FOLLOWERS_PARADOX):
+# an agent creates a type called StubFooBackend / MockFooBackend /
+# FakeFooBackend and wires it as the DEFAULT in `Service::new()`. The
+# result is production code silently returning fake data while
+# satisfying surface checks like `grep -r "TODO"`.
+#
+# This rule fires when:
+#   1. A type definition (`struct`, `enum`, `trait`) whose name contains
+#      `Stub`, `Mock`, `Fake`, or `Dummy` is declared OUTSIDE a
+#      `#[cfg(test)]` guard or a tests-rooted file.
+#
+# Companion: scripts/ci/check_no_mocks.py provides regex-level coverage
+# of the same pattern (both should fire on the same input).
+
+rules:
+  - id: no-stub-default-constructor
+    message: |
+      Type definitions named `Stub*` / `Mock*` / `Fake*` / `Dummy*` MUST
+      be behind `#[cfg(test)]` or live in a `tests/`-rooted file.
+      Production code must never default-construct fake backends —
+      even via a type that "looks right." If the production code
+      legitimately needs a no-op handler, rename to express its real
+      role (e.g. `NoopHandler`, `NullSink`); the marker words are
+      reserved for test scaffolding. See
+      .agentile/docs/methodology/04_FAILURE_MODES.md.
+    languages: [rust]
+    severity: ERROR
+    paths:
+      exclude:
+        - "**/tests/**"
+        - "**/test_*.rs"
+        - "**/*_test.rs"
+        - "**/*_tests.rs"
+        - "**/target/**"
+        - "**/benches/**"
+    pattern-either:
+      - patterns:
+          - pattern-regex: '(pub\s+)?(struct|enum|trait)\s+\w*(Stub|Mock|Fake|Dummy)\w*\b'
+          - pattern-not-inside: |
+              #[cfg(test)]
+              ...
+          - pattern-not-inside: |
+              #[cfg(any(test, $...))]
+              ...

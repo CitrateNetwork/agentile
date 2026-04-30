@@ -1,0 +1,40 @@
+# frontmatter-required — Rule 12 enforcer.
+#
+# Detects new `.md` files under `.agentile/` that don't begin with a
+# Rule-12 frontmatter block (a `---` line at line 1, then key:value
+# pairs, then a closing `---`).
+#
+# Companion: scripts/ci/check_frontmatter.py walks .agentile/ and
+# applies the same rule at the file level. The Semgrep version is for
+# editors that support live linting — agents and humans get the same
+# warning at write-time that CI gives at PR-time.
+#
+# Note: Semgrep's "generic" mode is used here because Markdown isn't
+# one of its first-class languages. The pattern matches at the start
+# of file (^^^) and uses a negative-lookahead for the `---` line.
+
+rules:
+  - id: frontmatter-required
+    message: |
+      Markdown files under .agentile/ MUST begin with a Rule-12
+      frontmatter block:
+
+          ---
+          created: YYYY-MM-DDTHH:MM:SSZ
+          branch: <git branch>
+          author: <name or zooid>
+          status: active | template | archived | superseded
+          ---
+
+      See .agentile/rules/CORE_RULES.md Rule 12 for the full spec.
+      Pre-rule artifacts (older than the rule's introduction) are
+      exempt UNTIL touched — the moment you edit one, add frontmatter.
+    languages: [generic]
+    severity: ERROR
+    paths:
+      include:
+        - ".agentile/**/*.md"
+      exclude:
+        - ".agentile/INDEX/**"
+    patterns:
+      - pattern-regex: '\A(?!---\n)'

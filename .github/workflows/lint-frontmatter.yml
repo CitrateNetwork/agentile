@@ -1,0 +1,74 @@
+name: Lint Frontmatter
+
+# Rule 12 enforcer — fires on every PR. Runs `check_frontmatter.py`
+# scoped to the .md files the PR actually changed under .agentile/.
+#
+# Why scoped: a fresh project's first few sprints will accumulate a
+# lot of valid pre-rule artifacts that don't have frontmatter; the
+# ratchet (ratchet 4) gates the project-wide fraction. This workflow
+# enforces that NEW docs added in a PR all have frontmatter, which is
+# the strict subset that should never regress.
+
+on:
+  pull_request:
+    paths:
+      - '.agentile/**/*.md'
+      - 'scripts/ci/check_frontmatter.py'
+      - '.github/workflows/lint-frontmatter.yml'
+  push:
+    branches: [main]
+    paths:
+      - '.agentile/**/*.md'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: lint-frontmatter-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Frontmatter required (Rule 12)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Determine changed .md files under .agentile/
+        id: changed
+        run: |
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            base="${{ github.event.pull_request.base.sha }}"
+            head="${{ github.event.pull_request.head.sha }}"
+          else
+            base="${{ github.event.before }}"
+            head="${{ github.sha }}"
+          fi
+          # Filter to .md files under .agentile/, excluding INDEX/.
+          files=$(git diff --name-only --diff-filter=AM "$base" "$head" -- '.agentile/**/*.md' \
+            | grep -v '^\.agentile/INDEX/' || true)
+          {
+            echo "files<<EOF"
+            echo "$files"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Check frontmatter on changed files
+        if: ${{ steps.changed.outputs.files != '' }}
+        run: |
+          # shellcheck disable=SC2086
+          ./scripts/ci/check_frontmatter.py --files ${{ steps.changed.outputs.files }}
+
+      - name: No relevant changes
+        if: ${{ steps.changed.outputs.files == '' }}
+        run: |
+          echo "No .md changes under .agentile/ in this PR; nothing to check."

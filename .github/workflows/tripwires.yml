@@ -1,0 +1,108 @@
+name: Tripwires
+
+# Class-of-bug detectors: Semgrep rules under scripts/semgrep/ plus the
+# Python checks under scripts/ci/ that aren't ratchets. Each runs as a
+# separate job so a single failure doesn't mask others.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tripwires-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  no-unwraps:
+    name: No `.unwrap()` in production (Rule 5)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Run check_no_unwraps.py
+        run: ./scripts/ci/check_no_unwraps.py
+
+  no-mocks:
+    name: No stub/mock types in prod (Rules 2 + 11)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Run check_no_mocks.py
+        run: ./scripts/ci/check_no_mocks.py
+
+  semgrep:
+    name: Semgrep tripwires (AST-grade)
+    runs-on: ubuntu-latest
+    # Semgrep can fail open on certain runner edge cases; we accept that
+    # rather than re-implement Semgrep's analysis. The Python checks
+    # above are the floor — Semgrep is the upgrade.
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run Semgrep
+        uses: returntocorp/semgrep-action@v1
+        with:
+          config: scripts/semgrep/
+        # Note: semgrep-action exits non-zero on any ERROR-severity
+        # finding. WARNING-severity rules (real-backend-loophole,
+        # claim-compression-detector) surface as comments, not blockers.
+
+  frontmatter-required:
+    name: Frontmatter required on new .agentile/ docs (Rule 12)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Determine added .md files under .agentile/
+        id: added
+        run: |
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            base="${{ github.event.pull_request.base.sha }}"
+            head="${{ github.event.pull_request.head.sha }}"
+          else
+            base="${{ github.event.before }}"
+            head="${{ github.sha }}"
+          fi
+          # Diff filter A = added; we don't re-check Modified files here
+          # because the file-level ratchet in lint-frontmatter.yml owns that.
+          files=$(git diff --name-only --diff-filter=A "$base" "$head" -- '.agentile/**/*.md' \
+            | grep -v '^\.agentile/INDEX/' || true)
+          {
+            echo "files<<EOF"
+            echo "$files"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Check frontmatter on added files
+        if: ${{ steps.added.outputs.files != '' }}
+        run: |
+          # shellcheck disable=SC2086
+          ./scripts/ci/check_frontmatter.py --files ${{ steps.added.outputs.files }}
+
+      - name: No new docs
+        if: ${{ steps.added.outputs.files == '' }}
+        run: |
+          echo "No new .md files under .agentile/ in this change; nothing to check."

@@ -1,0 +1,79 @@
+# no-real-backend-loophole — Rule 11 enforcer.
+#
+# Catches the "Real Backend Loophole" (discovered during a March 2026
+# remediation). An agent will name a type `RealXxxBackend` or
+# `RpcXxxBackend` — passing the surface check that no `Stub` / `Mock`
+# appears in the type name — and then have its methods return:
+#
+#   - `Vec::new()`           empty vec, claimed to be real-data result
+#   - `vec![]`               same
+#   - hardcoded structs without a `// data source: <ref>` comment
+#   - `Ok(())` from a "start" method that doesn't start anything
+#
+# The semantic violation: the method's name says it returns real data
+# but the implementation is a placeholder.
+#
+# This rule is INTENTIONALLY NOISY — it produces a manual review prompt
+# rather than a hard block. Many legitimate methods return `Vec::new()`
+# (empty initialization, deliberate zero result). The rule's job is to
+# raise the question, not to answer it.
+#
+# To suppress on a true positive: add `// data source: <named source>`
+# on the line immediately before the method body, naming the contract
+# / RPC / file the data flows from. This makes Rule-11 compliance
+# explicit at the call site.
+
+rules:
+  - id: no-real-backend-loophole
+    message: |
+      A method on a type named `*Backend` / `*Service` / `*Source`
+      returns an empty collection or `Ok(())` without a data-source
+      comment. This is the Real Backend Loophole pattern: the type
+      name says "real" but the body is a placeholder.
+
+      Either:
+        (a) the method is genuinely a no-op or empty-default — add
+            `// data source: <reason>` documenting that;
+        (b) the method should call a real data source — replace the
+            placeholder body with the actual call.
+
+      Rule 11 (data source tracing): every backend/service method
+      that claims to return real data must name its source in code.
+    languages: [rust]
+    severity: WARNING
+    paths:
+      exclude:
+        - "**/tests/**"
+        - "**/test_*.rs"
+        - "**/*_test.rs"
+        - "**/*_tests.rs"
+        - "**/target/**"
+    patterns:
+      - pattern-either:
+          - pattern: |
+              impl $TYPE {
+                ...
+                fn $METHOD(...) -> Vec<$T> {
+                  Vec::new()
+                }
+                ...
+              }
+          - pattern: |
+              impl $TYPE {
+                ...
+                fn $METHOD(...) -> Vec<$T> {
+                  vec![]
+                }
+                ...
+              }
+          - pattern: |
+              impl $TYPE {
+                ...
+                fn $METHOD(...) -> Result<(), $E> {
+                  Ok(())
+                }
+                ...
+              }
+      - metavariable-regex:
+          metavariable: $TYPE
+          regex: '.*(Backend|Service|Source)$'

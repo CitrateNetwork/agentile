@@ -1,0 +1,92 @@
+name: Ratchet Check
+
+# The four ratchets (Rules 3, 10, tripwire-discipline, 12) running on
+# every PR and push to main. Each ratchet reads its baseline from
+# `.agentile/coverage/baseline.json`. If the baseline is missing or
+# the relevant command is empty, that ratchet is a no-op (skeleton-
+# friendly behavior — the project owner runs bootstrap.sh to fill in
+# baselines).
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ratchet-check-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test-ratchet:
+    name: Test count ratchet (Rule 3)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      # Project-specific tooling setup goes here. The skeleton ships a
+      # placeholder — projects extend this job with the test runner(s)
+      # their canonical command needs (cargo, vitest, pytest, forge, ...).
+      # Example:
+      #   - name: Set up Rust toolchain
+      #     uses: dtolnay/rust-toolchain@stable
+      #
+      # If `baseline.json` has an empty `tests.command`, the ratchet is
+      # a no-op and the toolchain step is skipped.
+
+      - name: Test count ratchet
+        run: ./scripts/ci/check_test_ratchet.py
+
+  spec-ratchet:
+    name: Formal spec count ratchet (Rule 10)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Spec count ratchet
+        run: ./scripts/ci/check_spec_ratchet.py
+
+  tripwire-ratchet:
+    name: CI tripwire count ratchet
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Tripwire count ratchet
+        run: ./scripts/ci/check_tripwire_ratchet.py
+
+  frontmatter-ratchet:
+    name: Frontmatter coverage ratchet (Rule 12)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Frontmatter coverage ratchet
+        # No --files flag: this is the project-wide ratchet, distinct
+        # from lint-frontmatter.yml which scopes to changed files.
+        run: ./scripts/ci/check_frontmatter.py

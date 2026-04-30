@@ -2,6 +2,50 @@
 
 Notable changes to the Agentile skeleton. Versioned per semver.
 
+## [v0.4.0-rc1] — 2026-04-30
+
+**Phase 4 (CI tripwires + ratchet checks + GitHub Actions).**
+
+### Added
+
+- **CI check scripts** under `scripts/ci/` (Python 3, stdlib-only):
+  - `_baseline.py` — shared loader for `.agentile/coverage/baseline.json`
+  - `check_frontmatter.py` — Rule 12, project-wide and `--files` scoped
+  - `check_no_unwraps.py` — Rule 5, Rust-default with adapter table
+  - `check_no_mocks.py` — Rules 2 + 11, plus MOCKS.md registry check
+  - `check_test_ratchet.py` — Rule 3, runs canonical command from baseline
+  - `check_spec_ratchet.py` — Rule 10, counts `.tla` files
+  - `check_tripwire_ratchet.py` — append-only tripwire discipline
+  - `check_audit_immutability.py` — Rule 6, walks git log
+  - `README.md` — invocation patterns and exit-code conventions
+- **Semgrep rules** under `scripts/semgrep/` (AST-grade companions):
+  - `no-unwrap-in-prod.yaml` (ERROR)
+  - `no-stub-default-constructor.yaml` (ERROR)
+  - `no-real-backend-loophole.yaml` (WARNING)
+  - `frontmatter-required.yaml` (ERROR)
+  - `claim-compression-detector.yaml` (WARNING)
+  - `README.md` — when to add/remove rules
+- **GitHub Actions workflows** under `.github/workflows/`:
+  - `lint-frontmatter.yml` — Rule 12 on changed `.md` files
+  - `lint-workflows.yml` — `actionlint` + shellcheck on workflow YAML
+  - `ratchet-check.yml` — all four ratchets, separate jobs
+  - `tripwires.yml` — Python checks + Semgrep + frontmatter-on-added
+  - `audit-immutability.yml` — Rule 6 on `.agentile/audits/**`
+  - `README.md` — non-GitHub CI porting guide
+- **Baseline schema** at `.agentile/coverage/baseline.json.template`
+  — machine-readable companion to BASELINE.md, consumed by ratchet scripts.
+
+### Notes
+
+- Ratchet scripts degrade gracefully when `baseline.json` is missing —
+  they return 0 with a warning, which is the correct behavior on a
+  freshly-adopted skeleton before bootstrap.sh runs.
+- All 7 CI scripts smoke-tested clean against the skeleton itself:
+  29/29 frontmatter coverage, 0 unwraps, 0 mocks, 0 audit-mutations,
+  9 tripwires (4 Python checks + 5 Semgrep rules) registered.
+- Phase 5 (AI grading + human eval + benchmarks) and Phase 6 (`.claude/`
+  + `bootstrap.sh` + INSTALL.md) ship later.
+
 ## [v0.3.0-rc1] — 2026-04-30
 
 **Phase 3 (indexer scripts + sprint CLI).**

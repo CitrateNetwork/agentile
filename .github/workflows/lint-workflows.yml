@@ -1,0 +1,43 @@
+name: Lint Workflows
+
+# Static-analyze every GitHub Actions workflow with `actionlint`.
+# Catches:
+#   - typos in `runs-on:` runner names
+#   - missing `permissions` blocks
+#   - unsafe shell injection patterns in `run:` (via shellcheck)
+#   - deprecated action versions (when their advisory DB is updated)
+#   - structural YAML errors that would only surface at trigger time
+#
+# Workflow drift is a supply-chain risk; failure blocks the merge.
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/**'
+      - '.github/actionlint.yaml'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/**'
+      - '.github/actionlint.yaml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: lint-workflows-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  actionlint:
+    name: actionlint + shellcheck
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run actionlint
+        uses: docker://rhysd/actionlint:latest
+        with:
+          args: -color

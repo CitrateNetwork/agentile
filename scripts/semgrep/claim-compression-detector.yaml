@@ -1,0 +1,45 @@
+# claim-compression-detector — soft gate.
+#
+# Detects "claim compression" in commit messages and PR descriptions:
+# the pattern of compressing intermediate-state work into the language
+# of finished work ("done", "complete", "ready", "shipped", "finished")
+# within close proximity of a feature name.
+#
+# Why this matters (see THE_RULE_FOLLOWERS_PARADOX): agents and humans
+# alike have a strong incentive to round up. "WP-3 done" reads better
+# than "WP-3 implemented but two of its acceptance criteria are still
+# pending verification on a 4-node testnet." The first is satisfying;
+# the second is true. A retro that builds on the first will plan
+# against the wrong baseline.
+#
+# This is a SOFT gate: it surfaces a manual review prompt, not a hard
+# block. Some commits really do close work cleanly and "done" is the
+# right word. The reviewer's job is to pause and ask "is this actually
+# closed, end-to-end?" before approving.
+#
+# To suppress on a true positive (genuinely-closed work): no special
+# action needed — the rule fires as a warning, not an error. The
+# reviewer reads the diff and confirms.
+
+rules:
+  - id: claim-compression-detector
+    message: |
+      Claim-compression word detected near a feature reference. Pause
+      and verify: is this actually closed end-to-end (acceptance
+      criteria all met, tests added, data sources named, integration
+      pass), or is it implementation-complete-but-unverified?
+
+      Closing prematurely produces compounding planning errors.
+      A WP that's "done" but not verified is carry-forward, not closed.
+
+      See .agentile/docs/methodology/04_FAILURE_MODES.md
+      (claim compression) and CORE_RULES.md Rule 9 (sprint file is
+      source of truth, not chat).
+    languages: [generic]
+    severity: WARNING
+    paths:
+      include:
+        - "**/COMMIT_EDITMSG"
+        - "**/PULL_REQUEST_TEMPLATE*.md"
+        - "**/.git/COMMIT_EDITMSG"
+    pattern-regex: '\b(done|complete|completed|finished|shipped|ready|landed)\b.{0,30}\b(WP-[A-Z0-9.-]+|sprint|feature|RM-[A-Z0-9-]+)\b'

@@ -1,0 +1,29 @@
+{
+  "$schema_comment": "Machine-readable baseline used by scripts/ci/check_*_ratchet.py. Filled in by bootstrap.sh at project setup; updated at every sprint close. The corresponding human-readable document is BASELINE.md (see GATES.md for the four-ratchet model). Rename this file to baseline.json when filling in.",
+  "project": "<PROJECT NAME>",
+  "day_zero_commit": "<full git hash>",
+  "day_zero_date": "YYYY-MM-DD",
+  "tests": {
+    "count": 0,
+    "command": "",
+    "_examples": {
+      "rust_workspace": "cargo test --workspace 2>&1 | grep -E 'test result:' | awk '{s+=$4}END{print s}'",
+      "vitest": "npx vitest run --reporter=json 2>/dev/null | jq '.numTotalTests'",
+      "pytest": "pytest --collect-only -q 2>/dev/null | tail -n 1 | awk '{print $1}'",
+      "forge": "forge test --summary 2>&1 | grep 'Suite result' | awk '{s+=$4}END{print s}'"
+    }
+  },
+  "specs": {
+    "count": 0,
+    "directories": [".agentile/formal/specs"],
+    "command": ""
+  },
+  "tripwires": {
+    "count": 0,
+    "command": ""
+  },
+  "frontmatter": {
+    "covered": 0,
+    "total": 0
+  }
+}

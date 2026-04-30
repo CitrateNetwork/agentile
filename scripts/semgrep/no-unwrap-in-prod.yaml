@@ -1,0 +1,45 @@
+# no-unwrap-in-prod — Rule 5 enforcer (AST-grade).
+#
+# Forbids bare `.unwrap()` calls in Rust production code. Tests, benches,
+# and explicitly-justified call sites (with `// allow-unwrap: <reason>`)
+# are exempt.
+#
+# Why: `.unwrap()` on an Err/None panics with no context. In a binary
+# meant for production use this means lost user trust on a recoverable
+# error path. In tests it means a useless "called Option::unwrap on
+# None" message. Either replace with `?` (production), `.expect("msg")`
+# (test or known-infallible), or `match` (when you want to handle both
+# arms).
+#
+# Companion check: scripts/ci/check_no_unwraps.py runs the same rule
+# at regex level (faster, no Semgrep dependency). Both should fire on
+# the same input.
+
+rules:
+  - id: no-unwrap-in-prod
+    message: |
+      Bare `.unwrap()` is forbidden in production code (Rule 5).
+      Use `?` to propagate, `.expect("descriptive reason")` if the
+      call is genuinely infallible, or `match` to handle both arms.
+      If this specific call is justified, add a comment on the same
+      line: `// allow-unwrap: <reason>` and document in the WP.
+    languages: [rust]
+    severity: ERROR
+    paths:
+      include:
+        - "src/**"
+        - "core/**"
+        - "node/**"
+        - "wallet/**"
+        - "cli/**"
+        - "faucet/**"
+      exclude:
+        - "**/tests/**"
+        - "**/benches/**"
+        - "**/test_*.rs"
+        - "**/*_test.rs"
+        - "**/*_tests.rs"
+        - "**/target/**"
+    pattern-either:
+      - pattern: $X.unwrap()
+      - pattern: $X.unwrap()?
