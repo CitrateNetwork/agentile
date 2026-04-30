@@ -1,0 +1,80 @@
+---
+created: 2026-04-30T05:00:00Z
+branch: main
+author: agentile-skeleton
+status: template
+---
+
+<!--
+SPEC_INDEX TEMPLATE — Agentile.
+
+The canonical inventory of TLA+ specs in this project.
+
+Filled in by `bootstrap.sh` at project setup; updated whenever a
+spec is added, renamed, or removed. The CI tooling reads this
+file to know which specs to run.
+
+Rename to SPEC_INDEX.md (drop the .template suffix) when you fill
+in the placeholders. If your project has zero specs at day zero,
+keep this file with an empty inventory — the file's existence is
+how the rest of the framework knows the inventory is intentional,
+not missing.
+-->
+
+# TLA+ Spec Inventory — <PROJECT NAME>
+
+> Canonical inventory. CI runs every spec listed here. New specs
+> are added to this file in the same commit that lands them in
+> `formal/specs/`; removed specs are removed in the same commit
+> that deletes the source-of-truth `.tla`.
+
+## Project metadata
+
+| Field | Value |
+|-------|-------|
+| **Project** | <name> |
+| **Source-of-truth specs path** | `<project-root>/specs/tla/` |
+| **Mirror path** | `.agentile/formal/specs/` |
+| **TLC runner** | `<command>` (e.g. `java -cp tools/tla2tools.jar tlc2.TLC`) |
+| **Per-PR run cadence** | every PR |
+| **Deep-verification cadence** | nightly / pre-release |
+
+## Specs
+
+<!--
+Group specs by area. Each spec gets a one-row entry.
+
+Stable spec ID (column 1) is what the WP block in SPRINT.md
+references. Once assigned, the ID never changes; if the spec is
+renamed, leave the old ID and add a "renamed_to" column note.
+-->
+
+### Area: <consensus / execution / cross-chain / ...>
+
+| ID | Spec name | What it verifies | Last clean | Owner |
+|----|-----------|------------------|------------|-------|
+| <SPEC-001> | <SpecName>.tla | <one-line invariant statement> | YYYY-MM-DD on `<commit>` | <name> |
+| <SPEC-002> | <SpecName>.tla | <invariants> | YYYY-MM-DD on `<commit>` | <name> |
+
+### Area: <other area>
+
+| ID | Spec name | What it verifies | Last clean | Owner |
+|----|-----------|------------------|------------|-------|
+| <SPEC-NNN> | <SpecName>.tla | <invariants> | YYYY-MM-DD on `<commit>` | <name> |
+
+## Counts
+
+| Field | Value |
+|-------|-------|
+| **Total specs** | <N> |
+| **Last full clean run** | YYYY-MM-DD on `<commit>` |
+
+## Removal record
+
+When a spec is removed, append a row here. Do not delete the
+removal record — the history of what specs once existed and why
+they were retired is part of the inventory.
+
+| Removed-on | Spec name | Replacement (if any) | Reason |
+|------------|-----------|----------------------|--------|
+| YYYY-MM-DD | <SpecName>.tla | <Replacement>.tla / none | <retired feature / superseded by ...> |

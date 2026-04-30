@@ -1,0 +1,124 @@
+---
+created: 2026-04-30T05:00:00Z
+branch: main
+author: agentile-skeleton
+status: template
+---
+
+<!--
+BASELINE TEMPLATE — Agentile.
+
+This file is filled in once at project setup (or by `bootstrap.sh`
+in Phase 6 of the skeleton rollout) and updated at each sprint
+close. It records the project's day-zero numbers for the four
+ratchets defined in GATES.md, plus the canonical commands the
+project uses to count them.
+
+Rename to BASELINE.md (drop the .template suffix) when you fill
+in the placeholders.
+-->
+
+# Coverage Baseline — <PROJECT NAME>
+
+> The day-zero quality floor and the canonical commands that
+> measure it. CI pulls thresholds from this file. Sprint kickoff
+> snapshots from this file. Every measurement in DAILY.md and
+> SPRINT.md re-uses these commands verbatim — no improvised
+> counting.
+
+## Project metadata
+
+| Field | Value |
+|-------|-------|
+| **Project** | <name> |
+| **Repo** | <github org/repo> |
+| **Day-zero date** | YYYY-MM-DD |
+| **Day-zero commit** | `<full git hash>` |
+| **Primary languages** | <Rust, TypeScript, Solidity, ...> |
+| **Frontmatter scope** | `.agentile/` (default) / extended to: <list> |
+
+## Ratchet 1: Test count
+
+| Field | Value |
+|-------|-------|
+| **Day-zero count** | <N> |
+| **Captured at** | `<commit hash>` on YYYY-MM-DD |
+
+**Canonical command:**
+
+```bash
+# Replace with the exact command this project uses. Multiple suites
+# concatenate their counts; the total is what the ratchet enforces.
+<command-line-1>
+<command-line-2>
+```
+
+**Per-suite breakdown (informational):**
+
+| Suite | Count | Counting command |
+|-------|-------|------------------|
+| <suite name, e.g. cargo workspace> | <N> | `<command>` |
+| <suite name, e.g. vitest GUI> | <N> | `<command>` |
+| <suite name, e.g. forge> | <N> | `<command>` |
+
+## Ratchet 2: Formal specs
+
+| Field | Value |
+|-------|-------|
+| **Day-zero count** | <N> |
+| **Spec directory** | `<path/to/specs>` |
+
+**Canonical command:**
+
+```bash
+<count + run command>
+```
+
+If the project does not use formal verification at day zero, set
+the count to 0 and note "no specs at day zero" — the ratchet still
+applies; specs simply cannot be removed once they exist.
+
+## Ratchet 3: CI tripwires
+
+| Field | Value |
+|-------|-------|
+| **Day-zero count** | <N> |
+| **Tripwire directory / pattern** | `<where tripwires live>` |
+
+**Canonical command:**
+
+```bash
+<count command>
+```
+
+**Tripwire inventory:** see `<tripwire registry path>` for the
+list of active tripwires and their motivating audit findings.
+
+## Ratchet 4: Frontmatter coverage
+
+| Field | Value |
+|-------|-------|
+| **Day-zero numerator** | <covered> |
+| **Day-zero denominator** | <total> |
+| **Day-zero fraction** | <covered>/<total> = <pct>% |
+
+**Canonical command:**
+
+```bash
+total=$(find .agentile -name '*.md' | wc -l)
+covered=$(find .agentile -name '*.md' | xargs -I{} sh -c 'head -1 "{}" | grep -q "^---$" && echo 1' | wc -l)
+echo "$covered/$total"
+```
+
+If the project extended frontmatter scope beyond `.agentile/`,
+update the `find` paths and re-run.
+
+## Update history
+
+| Date | Captured-at commit | Tests | Specs | Tripwires | Frontmatter |
+|------|---------------------|-------|-------|-----------|-------------|
+| YYYY-MM-DD | `<hash>` | <N> | <N> | <N> | <C/T> |
+| YYYY-MM-DD | `<hash>` | <N> | <N> | <N> | <C/T> |
+
+Append a row at every sprint close. Do not edit prior rows — the
+history IS the ratchet record.
