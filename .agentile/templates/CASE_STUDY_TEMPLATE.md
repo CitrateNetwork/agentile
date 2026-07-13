@@ -21,6 +21,8 @@ Write a case study when:
   - A bug, near-miss, or surprising outcome reveals a pattern that
     could recur in different forms
   - A particularly costly or instructive remediation is closing
+  - Something novel emerged — a concept or implementation worth
+    reusing — and the "incident" is the discovery itself
   - An external incident (Knight Capital, log4shell, etc.) maps
     cleanly onto a class of risk this project carries
 
@@ -63,6 +65,19 @@ external (a known industry incident), cite the original source.>
 <2–4 paragraphs. The mechanism. Don't stop at proximate cause —
 keep asking "and why did THAT happen?" until the answer is a
 property of how the team / tool / process works.>
+
+## The repair — and the anti-repair
+
+<Document the correct fix AND the tempting-but-wrong fix, and why
+the wrong one is wrong. The anti-repair is usually the one that
+makes the symptom disappear without re-earning the truth — e.g.
+updating a pinned expected value to whatever the code now
+produces, turning a referee into a mirror.>
+
+| | What | Why |
+|---|------|-----|
+| **Repair** | <the fix that landed> | <why it re-earns trust> |
+| **Anti-repair** | <the tempting fix, rejected> | <why it is wrong> |
 
 ## Indicators (early warning signs)
 

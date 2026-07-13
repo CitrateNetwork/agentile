@@ -54,6 +54,14 @@ section title carries the load.>
 
 <...>
 
+## The honest reading
+
+<Name the limits: what is aspirational vs. enforced, what the
+argument does not prove, which bets are still open. Any section
+title that reads as a limits section counts — but the section
+itself is not optional. It is what separates an essay from
+marketing.>
+
 ## What this implies
 
 <The actionable consequence of the argument, if any. An essay can
