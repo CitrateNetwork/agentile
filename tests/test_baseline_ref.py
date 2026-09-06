@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -53,8 +54,8 @@ class BaselineRefTests(unittest.TestCase):
 
             with patch.object(_baseline, "PROJECT_ROOT", root), patch.object(
                 _baseline, "BASELINE_PATH", baseline_path
-            ):
-                loaded = _baseline.load_baseline(ref=ref)
+            ), patch.dict(os.environ, {"AGENTILE_BASELINE_REF": ref}):
+                loaded = _baseline.load_baseline()
 
             self.assertEqual(loaded["tests"]["count"], 7)
 

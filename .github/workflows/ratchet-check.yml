@@ -1,11 +1,10 @@
 name: Ratchet Check
 
 # The four ratchets (Rules 3, 10, tripwire-discipline, 12) running on
-# every PR and push to main. Each ratchet reads its baseline from
-# `.agentile/coverage/baseline.json`. If the baseline is missing or
-# the relevant command is empty, that ratchet is a no-op (skeleton-
-# friendly behavior — the project owner runs bootstrap.sh to fill in
-# baselines).
+# every PR and push to main. Each ratchet reads its baseline from the
+# merge-base commit, never from the PR checkout. If the baseline is missing or
+# the relevant command is empty, that ratchet is a no-op (skeleton-friendly
+# behavior — the project owner runs bootstrap.sh to fill in baselines).
 
 on:
   pull_request:
@@ -21,9 +20,41 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  baseline:
+    name: Select merge-base baseline
+    runs-on: ubuntu-latest
+    outputs:
+      ref: ${{ steps.select.outputs.ref }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Select merge-base baseline
+        id: select
+        env:
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          PUSH_BEFORE: ${{ github.event.before }}
+        run: |
+          set -euo pipefail
+          if [[ -n "$PR_BASE" ]]; then
+            base="$PR_BASE"
+          elif [[ -n "$PUSH_BEFORE" && "$PUSH_BEFORE" != "0000000000000000000000000000000000000000" ]]; then
+            base="$PUSH_BEFORE"
+          else
+            base="$(git rev-parse HEAD^ 2>/dev/null || git rev-parse HEAD)"
+          fi
+          git cat-file -e "$base^{commit}"
+          ref="$(git merge-base HEAD "$base")"
+          echo "ref=$ref" >> "$GITHUB_OUTPUT"
+          echo "Using Agentile baseline at merge-base $ref"
+
   test-ratchet:
     name: Test count ratchet (Rule 3)
+    needs: baseline
     runs-on: ubuntu-latest
+    env:
+      AGENTILE_BASELINE_REF: ${{ needs.baseline.outputs.ref }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -49,9 +80,14 @@ jobs:
 
   spec-ratchet:
     name: Formal spec count ratchet (Rule 10)
+    needs: baseline
     runs-on: ubuntu-latest
+    env:
+      AGENTILE_BASELINE_REF: ${{ needs.baseline.outputs.ref }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -63,9 +99,14 @@ jobs:
 
   tripwire-ratchet:
     name: CI tripwire count ratchet
+    needs: baseline
     runs-on: ubuntu-latest
+    env:
+      AGENTILE_BASELINE_REF: ${{ needs.baseline.outputs.ref }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -77,9 +118,14 @@ jobs:
 
   frontmatter-ratchet:
     name: Frontmatter coverage ratchet (Rule 12)
+    needs: baseline
     runs-on: ubuntu-latest
+    env:
+      AGENTILE_BASELINE_REF: ${{ needs.baseline.outputs.ref }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v5
