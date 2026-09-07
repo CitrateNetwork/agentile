@@ -16,6 +16,12 @@ Exit codes:
 Flags:
   --files <path>...   Only check these files (used by lint-frontmatter.yml
                       to scope checks to changed files in a PR).
+  --files-from <path> Read the file list (one path per line) from a file.
+                      Preferred in CI: the workflow writes changed filenames
+                      to a workspace file instead of interpolating them into
+                      a `run:` shell, which removes a template-injection
+                      vector when a PR adds a file with a shell-metacharacter
+                      name.
 """
 from __future__ import annotations
 
@@ -52,11 +58,30 @@ def collect_targets(explicit_files: list[str]) -> list[Path]:
 def main() -> int:
     args = sys.argv[1:]
     explicit_files: list[str] = []
+    scoped = False
     if args and args[0] == "--files":
         explicit_files = args[1:]
+        scoped = True
+    elif args and args[0] == "--files-from":
+        if len(args) < 2:
+            print("ERROR: --files-from requires a path.", file=sys.stderr)
+            return 2
+        list_path = Path(args[1])
+        try:
+            raw = list_path.read_text(encoding="utf-8")
+        except OSError as exc:
+            print(f"ERROR: cannot read --files-from {list_path}: {exc}", file=sys.stderr)
+            return 2
+        explicit_files = [line for line in raw.splitlines() if line.strip()]
+        scoped = True
     elif args and args[0] in ("-h", "--help"):
         print(__doc__)
         return 0
+
+    # In scoped (CI) mode with a non-empty list that yields no valid targets
+    # (e.g. every path was filtered out as non-.md or outside .agentile/), the
+    # empty-set branch below correctly reports OK.
+    _ = scoped
 
     targets = collect_targets(explicit_files)
     total = len(targets)

@@ -49,19 +49,27 @@ jobs:
   semgrep:
     name: Semgrep tripwires (AST-grade)
     runs-on: ubuntu-latest
-    # Semgrep can fail open on certain runner edge cases; we accept that
-    # rather than re-implement Semgrep's analysis. The Python checks
-    # above are the floor — Semgrep is the upgrade.
     steps:
       - uses: actions/checkout@v4
 
-      - name: Run Semgrep
-        uses: returntocorp/semgrep-action@v1
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
-          config: scripts/semgrep/
-        # Note: semgrep-action exits non-zero on any ERROR-severity
-        # finding. WARNING-severity rules (real-backend-loophole,
-        # claim-compression-detector) surface as comments, not blockers.
+          python-version: '3.11'
+
+      # SUPPLY CHAIN: run Semgrep from a pinned PyPI release rather than the
+      # abandoned `returntocorp/semgrep-action@v1` (retired org name, last
+      # pushed 2024-01-22, superseded by `semgrep`). A mutable action tag on a
+      # dormant repo is a takeover vector into every adopter's CI; a pinned
+      # `pip install semgrep==<ver>` is deterministic and auditable.
+      - name: Install Semgrep (pinned)
+        run: pip install "semgrep==1.86.0"
+
+      - name: Run Semgrep
+        # --error makes ERROR-severity findings fail the job. WARNING-severity
+        # rules (real-backend-loophole, claim-compression-detector) surface as
+        # output, not blockers. No fail-open: a Semgrep crash exits non-zero.
+        run: semgrep scan --error --config scripts/semgrep/ .
 
   frontmatter-required:
     name: Frontmatter required on new .agentile/ docs (Rule 12)
@@ -78,31 +86,36 @@ jobs:
 
       - name: Determine added .md files under .agentile/
         id: added
+        # SECURITY: SHAs via `env:`; the added-file list is written to a
+        # workspace FILE (not a step output interpolated into `run:`). See the
+        # matching note in lint-frontmatter.yml — a PR-controlled filename with
+        # shell metacharacters must never reach a `run:` expansion.
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PUSH_BEFORE_SHA: ${{ github.event.before }}
+          PUSH_HEAD_SHA: ${{ github.sha }}
         run: |
-          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
-            base="${{ github.event.pull_request.base.sha }}"
-            head="${{ github.event.pull_request.head.sha }}"
+          if [[ "$EVENT_NAME" == "pull_request" ]]; then
+            base="$PR_BASE_SHA"; head="$PR_HEAD_SHA"
           else
-            base="${{ github.event.before }}"
-            head="${{ github.sha }}"
+            base="$PUSH_BEFORE_SHA"; head="$PUSH_HEAD_SHA"
           fi
           # Diff filter A = added; we don't re-check Modified files here
           # because the file-level ratchet in lint-frontmatter.yml owns that.
-          files=$(git diff --name-only --diff-filter=A "$base" "$head" -- '.agentile/**/*.md' \
-            | grep -v '^\.agentile/INDEX/' || true)
-          {
-            echo "files<<EOF"
-            echo "$files"
-            echo "EOF"
-          } >> "$GITHUB_OUTPUT"
+          git diff --name-only --diff-filter=A "$base" "$head" -- '.agentile/**/*.md' \
+            | grep -v '^\.agentile/INDEX/' > added_files.txt || true
+          if [[ -s added_files.txt ]]; then
+            echo "any=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "any=false" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Check frontmatter on added files
-        if: ${{ steps.added.outputs.files != '' }}
-        run: |
-          # shellcheck disable=SC2086
-          ./scripts/ci/check_frontmatter.py --files ${{ steps.added.outputs.files }}
+        if: ${{ steps.added.outputs.any == 'true' }}
+        run: ./scripts/ci/check_frontmatter.py --files-from added_files.txt
 
       - name: No new docs
-        if: ${{ steps.added.outputs.files == '' }}
-        run: |
-          echo "No new .md files under .agentile/ in this change; nothing to check."
+        if: ${{ steps.added.outputs.any == 'false' }}
+        run: echo "No new .md files under .agentile/ in this change; nothing to check."
