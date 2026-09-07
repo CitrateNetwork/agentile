@@ -5,7 +5,7 @@
 > failure modes catalog, an agent-agnostic interface, and bindings
 > for Claude Code.
 
-Agentile is the workflow that built the [Citrate](https://github.com/SaulBuilds/citrate)
+Agentile is the workflow that built the [Citrate](https://citrate.ai)
 Layer-1 blockchain in 4 months with one engineer plus an AI. The
 artifact is not the blockchain. The artifact is the workflow that
 made it possible — extracted here so it can travel.
