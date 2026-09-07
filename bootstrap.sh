@@ -124,6 +124,29 @@ require_clean_tree() {
 today_iso() { date -u +%Y-%m-%d; }
 now_iso()   { date -u +%Y-%m-%dT%H:%M:%SZ; }
 
+# Escape an arbitrary string for safe use as a `sed` s/// REPLACEMENT.
+# `&` expands to the whole match and `\`/`/` are structural, so all three
+# must be escaped. A newline terminates the s/// command and could start a
+# new sed command (GNU sed's `e` runs a shell) — so we reject control
+# characters outright rather than try to escape them. This closes the
+# template-injection vector when --project-name/--description/etc. come from
+# a non-interactive caller feeding untrusted input.
+sed_escape() {
+  local value="$1"
+  # Reject newlines/carriage returns explicitly (a line-oriented grep would
+  # not "see" a bare newline as a character within a line) plus any other
+  # control character via bash's own regex over the whole string.
+  if [[ "$value" == *$'\n'* || "$value" == *$'\r'* || "$value" =~ [[:cntrl:]] ]]; then
+    echo "ERROR: template value contains a control character or newline; refusing (template-injection guard)" >&2
+    exit 1
+  fi
+  # Order matters: backslash first, then the delimiter and ampersand.
+  value="${value//\\/\\\\}"
+  value="${value//\//\\/}"
+  value="${value//&/\\&}"
+  printf '%s' "$value"
+}
+
 # ---------------------------------------------------------------------
 # Step 0: Sanity
 # ---------------------------------------------------------------------
@@ -167,6 +190,15 @@ echo "License:    $LICENSE_KIND"
 echo "Day zero:   $DAY_ZERO_DATE @ ${DAY_ZERO_COMMIT:0:8}"
 echo
 
+# Pre-escape operator-supplied values once for safe sed templating below.
+# sed_escape rejects control characters (template-injection guard) and
+# escapes \, /, and & so the replacement text is inert.
+ESC_PROJECT_NAME="$(sed_escape "$PROJECT_NAME")"
+ESC_PROJECT_DESC="$(sed_escape "$PROJECT_DESC")"
+ESC_LANGUAGES="$(sed_escape "$LANGUAGES")"
+ESC_LICENSE_KIND="$(sed_escape "$LICENSE_KIND")"
+ESC_SKELETON_VERSION="$(sed_escape "$SKELETON_VERSION")"
+
 # ---------------------------------------------------------------------
 # Step 2: CONFIG.md
 # ---------------------------------------------------------------------
@@ -177,10 +209,10 @@ if [[ ! -f "$AGENTILE/CONFIG.md" ]]; then
     cp "$AGENTILE/CONFIG.md.template" "$AGENTILE/CONFIG.md"
     # Light substitution of obvious placeholders. The user fills in the rest.
     sed -i.bak \
-      -e "s/<PROJECT_NAME>/${PROJECT_NAME//\//\\/}/g" \
-      -e "s/<PROJECT_DESCRIPTION>/${PROJECT_DESC//\//\\/}/g" \
-      -e "s/<LANGUAGES>/${LANGUAGES//\//\\/}/g" \
-      -e "s/<LICENSE>/${LICENSE_KIND//\//\\/}/g" \
+      -e "s/<PROJECT_NAME>/${ESC_PROJECT_NAME}/g" \
+      -e "s/<PROJECT_DESCRIPTION>/${ESC_PROJECT_DESC}/g" \
+      -e "s/<LANGUAGES>/${ESC_LANGUAGES}/g" \
+      -e "s/<LICENSE>/${ESC_LICENSE_KIND}/g" \
       "$AGENTILE/CONFIG.md"
     rm -f "$AGENTILE/CONFIG.md.bak"
     echo "       Edit .agentile/CONFIG.md to fill in remaining placeholders."
@@ -200,8 +232,8 @@ if [[ ! -f "$AGENTILE/PRODUCT_SPEC.md" ]]; then
   if [[ -f "$AGENTILE/PRODUCT_SPEC.md.template" ]]; then
     cp "$AGENTILE/PRODUCT_SPEC.md.template" "$AGENTILE/PRODUCT_SPEC.md"
     sed -i.bak \
-      -e "s/<PROJECT_NAME>/${PROJECT_NAME//\//\\/}/g" \
-      -e "s/<PROJECT_DESCRIPTION>/${PROJECT_DESC//\//\\/}/g" \
+      -e "s/<PROJECT_NAME>/${ESC_PROJECT_NAME}/g" \
+      -e "s/<PROJECT_DESCRIPTION>/${ESC_PROJECT_DESC}/g" \
       "$AGENTILE/PRODUCT_SPEC.md"
     rm -f "$AGENTILE/PRODUCT_SPEC.md.bak"
     echo "       Edit .agentile/PRODUCT_SPEC.md to define the finished product."
@@ -218,11 +250,11 @@ if [[ ! -f "$PROJECT_ROOT/CLAUDE.md" ]] && [[ -f "$PROJECT_ROOT/.claude/CLAUDE.m
   echo "[4/9] Generating CLAUDE.md from .claude/CLAUDE.md.template ..."
   cp "$PROJECT_ROOT/.claude/CLAUDE.md.template" "$PROJECT_ROOT/CLAUDE.md"
   sed -i.bak \
-    -e "s/<PROJECT_NAME>/${PROJECT_NAME//\//\\/}/g" \
-    -e "s/<PROJECT_DESCRIPTION>/${PROJECT_DESC//\//\\/}/g" \
-    -e "s/<LANGUAGES>/${LANGUAGES//\//\\/}/g" \
-    -e "s/<LICENSE>/${LICENSE_KIND//\//\\/}/g" \
-    -e "s/<AGENTILE_VERSION>/${SKELETON_VERSION//\//\\/}/g" \
+    -e "s/<PROJECT_NAME>/${ESC_PROJECT_NAME}/g" \
+    -e "s/<PROJECT_DESCRIPTION>/${ESC_PROJECT_DESC}/g" \
+    -e "s/<LANGUAGES>/${ESC_LANGUAGES}/g" \
+    -e "s/<LICENSE>/${ESC_LICENSE_KIND}/g" \
+    -e "s/<AGENTILE_VERSION>/${ESC_SKELETON_VERSION}/g" \
     "$PROJECT_ROOT/CLAUDE.md"
   rm -f "$PROJECT_ROOT/CLAUDE.md.bak"
 elif [[ -f "$PROJECT_ROOT/CLAUDE.md" ]]; then
@@ -273,7 +305,7 @@ if [[ ! -f "$baseline_md" ]] && [[ -f "$AGENTILE/coverage/BASELINE.md.template" 
   echo "[6/9] Seeding .agentile/coverage/BASELINE.md from template ..."
   cp "$AGENTILE/coverage/BASELINE.md.template" "$baseline_md"
   sed -i.bak \
-    -e "s/<PROJECT NAME>/${PROJECT_NAME//\//\\/}/g" \
+    -e "s/<PROJECT NAME>/${ESC_PROJECT_NAME}/g" \
     -e "s/<full git hash>/${DAY_ZERO_COMMIT}/g" \
     "$baseline_md"
   rm -f "$baseline_md.bak"
@@ -309,20 +341,27 @@ if [[ "$INSTALL_HOOKS" -eq 1 ]] && [[ -d "$PROJECT_ROOT/.claude/hooks" ]]; then
   echo "[7/9] Installing git hooks ..."
   git_hooks_dir="$(git -C "$PROJECT_ROOT" rev-parse --git-path hooks)"
   mkdir -p "$git_hooks_dir"
+  # Stable, unambiguous marker so re-runs recognise our own bridge and can
+  # UPDATE it (e.g. to ship a hook security fix), while still refusing to
+  # clobber a genuinely foreign hook. The marker is matched with `grep -qF`
+  # against the exact string we write — no case-sensitivity trap.
+  local hook_marker="agentile-hook-bridge"
   install_hook() {
     local src="$1" dst_name="$2"
     local dst="$git_hooks_dir/$dst_name"
-    if [[ -f "$dst" ]] && ! grep -q "agentile" "$dst" 2>/dev/null; then
+    if [[ -f "$dst" ]] && ! grep -qF "$hook_marker" "$dst" 2>/dev/null; then
       echo "       Existing $dst_name hook at $dst — leaving in place; agentile hook NOT installed."
       return
     fi
+    local action="Installed"
+    [[ -f "$dst" ]] && action="Updated"
     cat > "$dst" <<EOF
 #!/usr/bin/env bash
-# Agentile hook bridge — invokes the script in .claude/hooks/.
+# ${hook_marker} v1 — invokes the script in .claude/hooks/.
 exec "\$(git rev-parse --show-toplevel)/$src" "\$@"
 EOF
     chmod +x "$dst"
-    echo "       Installed $dst_name -> $src"
+    echo "       $action $dst_name -> $src"
   }
   install_hook ".claude/hooks/pre-commit-frontmatter.sh"   pre-commit
   install_hook ".claude/hooks/pre-commit-claim-grade.sh"   commit-msg
@@ -353,14 +392,22 @@ if [[ -z "$(git -C "$PROJECT_ROOT" diff --cached --name-only 2>/dev/null)" ]]; t
   echo "       Nothing to commit."
 else
   if confirm "Commit the bootstrap now?"; then
-    git -C "$PROJECT_ROOT" commit -m "chore: bootstrap from agentile-skeleton ${SKELETON_VERSION}
+    # Report the ACTUAL git-commit exit status. A failing commit hook
+    # (e.g. a pre-commit that rejects the change) must not be masked by a
+    # cheerful "Bootstrap complete." at the end — surface it here.
+    if git -C "$PROJECT_ROOT" commit -m "chore: bootstrap from agentile-skeleton ${SKELETON_VERSION}
 
 - Project: ${PROJECT_NAME}
 - License: ${LICENSE_KIND}
 - Languages: ${LANGUAGES}
 - Day zero: ${DAY_ZERO_DATE} @ ${DAY_ZERO_COMMIT:0:8}
-" >/dev/null
-    echo "       Committed."
+" >/dev/null; then
+      echo "       Committed."
+    else
+      echo "       ERROR: 'git commit' failed (exit $?). Bootstrap changes remain STAGED." >&2
+      echo "       Resolve the failure (often a commit hook) and commit manually." >&2
+      exit 1
+    fi
   else
     echo "       Skipped commit. Review staged changes and commit manually."
   fi

@@ -24,7 +24,15 @@ find_project_root() {
 PROJECT_ROOT="$(find_project_root)"
 
 # Collect staged .md files under .agentile/, excluding INDEX/.
-mapfile -t staged < <(
+#
+# NOTE: use a portable `while read` loop, not `mapfile`/`readarray`.
+# `mapfile` is a bash-4 builtin; macOS ships bash 3.2.57 as /bin/bash,
+# where `mapfile: command not found` would abort *every* commit in the
+# adopter's repo. This loop works identically on bash 3.2 and 5.x.
+staged=()
+while IFS= read -r line; do
+  [[ -n "$line" ]] && staged+=("$line")
+done < <(
   git -C "$PROJECT_ROOT" diff --cached --name-only --diff-filter=AM \
     -- '.agentile/**/*.md' \
     | grep -v '^\.agentile/INDEX/' || true
