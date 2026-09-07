@@ -201,6 +201,10 @@ class PublicHygiene(unittest.TestCase):
             "admin of CitrateNetwork",
         ]
         for p in _git(REPO, "ls-files").stdout.splitlines():
+            # The test harness itself legitimately names the sentinel strings
+            # it scans for; exclude tests/ from the corpus scan.
+            if p.startswith("tests/"):
+                continue
             fp = REPO / p
             if not fp.is_file():
                 continue
