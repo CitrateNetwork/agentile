@@ -27,6 +27,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "index"))
 from _common import find_project_root  # type: ignore  # noqa: E402
 from _baseline import load_baseline  # type: ignore  # noqa: E402
+from _vacuity import require_nonempty, vacuous_exit  # type: ignore  # noqa: E402
 
 PROJECT_ROOT = find_project_root()
 
@@ -76,8 +77,8 @@ def main() -> int:
     if not command:
         print("WARN: no test command set in .agentile/coverage/baseline.json.")
         print("      Test ratchet is a no-op until bootstrap.sh fills it in.")
-        print("      Returning success.")
-        return 0
+        return vacuous_exit("tests (no test command configured)",
+                            require_nonempty())
 
     print(f"Running test count command: {shlex.quote(command)}")
     current = run_test_count(command)

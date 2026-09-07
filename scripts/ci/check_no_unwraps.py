@@ -36,8 +36,10 @@ import re
 import sys
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "index"))
 from _common import find_project_root  # type: ignore  # noqa: E402
+from _vacuity import require_nonempty, vacuous_exit  # type: ignore  # noqa: E402
 
 PROJECT_ROOT = find_project_root()
 
@@ -119,6 +121,7 @@ ADAPTERS = {
 def main() -> int:
     args = sys.argv[1:]
     explicit_files: list[str] = []
+    files_mode = False
     languages = ["rust"]
 
     i = 0
@@ -128,7 +131,8 @@ def main() -> int:
             print(__doc__)
             return 0
         if a == "--files":
-            explicit_files = args[i + 1:]
+            explicit_files = [f for f in args[i + 1:] if f != "--require-nonempty"]
+            files_mode = True
             break
         if a == "--lang":
             languages = args[i + 1].split(",")
@@ -137,12 +141,14 @@ def main() -> int:
         i += 1
 
     total_violations = 0
+    total_examined = 0
     for lang in languages:
         if lang not in ADAPTERS:
             print(f"WARN: no adapter for language '{lang}'; skipping", file=sys.stderr)
             continue
         collect, check = ADAPTERS[lang]
         files = collect(explicit_files)
+        total_examined += len(files)
         violations = check(files)
         if violations:
             print(f"=== {lang}: {len(violations)} violations ===")
@@ -150,8 +156,15 @@ def main() -> int:
                 print(f"  {path.relative_to(PROJECT_ROOT)}:{lineno}: {line}")
             total_violations += len(violations)
 
+    # In full-scan mode, examining zero production files means the gate ran
+    # against nothing (AG-B-007). `--files` mode is scoped to a PR's changed
+    # files, where an empty set legitimately means "nothing relevant changed".
+    if total_violations == 0 and total_examined == 0 and not files_mode:
+        return vacuous_exit("production source files", require_nonempty())
+
     if total_violations == 0:
-        print("OK: no `.unwrap()` calls in production code.")
+        print(f"OK: no `.unwrap()` calls in production code "
+              f"({total_examined} file(s) examined).")
         return 0
     print()
     print(f"BLOCKER: {total_violations} `.unwrap()` calls in production code.")

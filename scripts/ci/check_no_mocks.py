@@ -29,8 +29,10 @@ import re
 import sys
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "index"))
 from _common import find_project_root  # type: ignore  # noqa: E402
+from _vacuity import require_nonempty, vacuous_exit  # type: ignore  # noqa: E402
 
 PROJECT_ROOT = find_project_root()
 
@@ -172,16 +174,29 @@ def main() -> int:
         print(__doc__)
         return 0
     explicit_files: list[str] = []
+    files_mode = False
     if args and args[0] == "--files":
-        explicit_files = args[1:]
+        explicit_files = [f for f in args[1:] if f != "--require-nonempty"]
+        files_mode = True
 
     files = collect_rust_files(explicit_files)
     rust_violations = check_rust_files(files)
     registry_issues = check_mocks_registry()
 
+    mocks_md_present = (PROJECT_ROOT / "MOCKS.md").exists()
+    examined = len(files) + (1 if mocks_md_present else 0)
+
+    # Full-scan mode with nothing to examine (no production sources, no
+    # MOCKS.md) is a vacuous pass (AG-B-007). `--files` mode is PR-scoped.
+    if (not rust_violations and not registry_issues
+            and examined == 0 and not files_mode):
+        return vacuous_exit("production source files / MOCKS.md",
+                            require_nonempty())
+
     if not rust_violations and not registry_issues:
         print("OK: no mock/stub types in production code paths; "
-              "MOCKS.md (if present) is well-formed.")
+              f"MOCKS.md (if present) is well-formed ({examined} artifact(s) "
+              "examined).")
         return 0
 
     if rust_violations:

@@ -27,8 +27,10 @@ import subprocess
 import sys
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "index"))
 from _common import find_project_root  # type: ignore  # noqa: E402
+from _vacuity import require_nonempty, vacuous_exit  # type: ignore  # noqa: E402
 
 PROJECT_ROOT = find_project_root()
 AUDITS_DIR = PROJECT_ROOT / ".agentile" / "audits"
@@ -81,8 +83,11 @@ def main() -> int:
         since = args[1]
 
     if not AUDITS_DIR.exists():
-        print("OK: .agentile/audits/ does not exist (no audits yet).")
-        return 0
+        if since:
+            print("OK: .agentile/audits/ does not exist (no audits yet).")
+            return 0
+        return vacuous_exit("audit files (.agentile/audits/ absent)",
+                            require_nonempty())
 
     if since:
         changed = files_changed_in_range(since)
@@ -95,6 +100,10 @@ def main() -> int:
             return 0
     else:
         targets = list(AUDITS_DIR.rglob("*.md"))
+        if not targets:
+            # Full-scan mode with no audit .md files is a vacuous pass
+            # (AG-B-007): .agentile/audits/ holds only .gitkeep on a skeleton.
+            return vacuous_exit("audit files", require_nonempty())
 
     violations: list[tuple[str, str]] = []  # (rel_path, kind)
     for path in targets:
