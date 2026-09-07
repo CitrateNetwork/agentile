@@ -3,7 +3,7 @@ created: 2026-04-30T03:40:00Z
 branch: main
 author: Saul Loveman + Claude Opus 4.7 (1M context)
 status: active
-ported_from: github.com/SaulBuilds/citrate (2026-04-30)
+ported_from: github.com/CitrateNetwork/citrate (2026-04-30)
 ---
 # AGENT.md
 

@@ -45,30 +45,37 @@ jobs:
 
       - name: Determine changed .md files under .agentile/
         id: changed
+        # SECURITY: SHAs come through `env:` (not `${{ }}` in the script body),
+        # and the changed-file list is written to a workspace FILE, never to a
+        # step output that later gets interpolated into a `run:` shell. A PR
+        # can add a file whose name contains shell metacharacters (`;`, `$( )`,
+        # backticks); interpolating that name into `run:` is command injection.
+        # Passing it via a file + `--files-from` removes the expansion entirely.
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PUSH_BEFORE_SHA: ${{ github.event.before }}
+          PUSH_HEAD_SHA: ${{ github.sha }}
         run: |
-          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
-            base="${{ github.event.pull_request.base.sha }}"
-            head="${{ github.event.pull_request.head.sha }}"
+          if [[ "$EVENT_NAME" == "pull_request" ]]; then
+            base="$PR_BASE_SHA"; head="$PR_HEAD_SHA"
           else
-            base="${{ github.event.before }}"
-            head="${{ github.sha }}"
+            base="$PUSH_BEFORE_SHA"; head="$PUSH_HEAD_SHA"
           fi
           # Filter to .md files under .agentile/, excluding INDEX/.
-          files=$(git diff --name-only --diff-filter=AM "$base" "$head" -- '.agentile/**/*.md' \
-            | grep -v '^\.agentile/INDEX/' || true)
-          {
-            echo "files<<EOF"
-            echo "$files"
-            echo "EOF"
-          } >> "$GITHUB_OUTPUT"
+          git diff --name-only --diff-filter=AM "$base" "$head" -- '.agentile/**/*.md' \
+            | grep -v '^\.agentile/INDEX/' > changed_files.txt || true
+          if [[ -s changed_files.txt ]]; then
+            echo "any=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "any=false" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Check frontmatter on changed files
-        if: ${{ steps.changed.outputs.files != '' }}
-        run: |
-          # shellcheck disable=SC2086
-          ./scripts/ci/check_frontmatter.py --files ${{ steps.changed.outputs.files }}
+        if: ${{ steps.changed.outputs.any == 'true' }}
+        run: ./scripts/ci/check_frontmatter.py --files-from changed_files.txt
 
       - name: No relevant changes
-        if: ${{ steps.changed.outputs.files == '' }}
-        run: |
-          echo "No .md changes under .agentile/ in this PR; nothing to check."
+        if: ${{ steps.changed.outputs.any == 'false' }}
+        run: echo "No .md changes under .agentile/ in this PR; nothing to check."

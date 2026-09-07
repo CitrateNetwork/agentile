@@ -301,7 +301,7 @@ The six-phase rollout plan documented in
 ### Added
 - `.agentile/SPIRIT.md`, `.agentile/SOUL.md`, `.agentile/AGENT.md`,
   `.agentile/AGENT_ENTRY.md`, `.agentile/MANIFEST.md` — foundation
-  tier ported from `github.com/SaulBuilds/citrate` with frontmatter
+  tier ported from `github.com/CitrateNetwork/citrate` with frontmatter
   refreshed to `status: active`.
 - `.agentile/rules/CORE_RULES.md` — 12 enforceable rules, BLOCKER/GATE
   severity, ported with a banner annotation about example commands
@@ -330,6 +330,6 @@ The six-phase rollout plan documented in
 This skeleton was synthesized from the Citrate project's
 `.agentile/` corpus (1,283 markdown documents accumulated 2025-12 → 2026-04).
 The synthesis is recorded at
-`https://github.com/SaulBuilds/citrate/tree/main/.agentile/docs/methodology`
+`https://github.com/CitrateNetwork/citrate/tree/main/.agentile/docs/methodology`
 and the planset that drove this skeleton's design at
-`https://github.com/SaulBuilds/citrate/tree/main/.agentile/planset/2026-04-30-agentile-skeleton`.
+`https://github.com/CitrateNetwork/citrate/tree/main/.agentile/planset/2026-04-30-agentile-skeleton`.

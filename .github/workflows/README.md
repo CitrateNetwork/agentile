@@ -1,6 +1,6 @@
 # `.github/workflows/` — CI workflows
 
-> Five GitHub Actions workflows that wire the agentile rules and
+> Eight GitHub Actions workflows that wire the agentile rules and
 > ratchets into PR-time enforcement. Each workflow invokes a script
 > from `scripts/ci/` or `scripts/semgrep/`; the workflow itself only
 > handles GitHub-side glue (when to run, what to check out, how to
@@ -8,13 +8,21 @@
 
 ## Workflows
 
-| Workflow | Triggers | Enforces | Rule(s) |
-|----------|----------|----------|---------|
-| `lint-frontmatter.yml` | PR / push to .md | `check_frontmatter.py` on changed `.md` files | 12 |
-| `lint-workflows.yml` | PR / push to `.github/workflows/**` | `actionlint` on workflow YAML | (supply chain hygiene) |
-| `ratchet-check.yml` | every PR / push to main | All four ratchets | 3, 10, 12, tripwire discipline |
-| `tripwires.yml` | every PR / push to main | `check_no_unwraps`, `check_no_mocks`, Semgrep, frontmatter-on-added | 2, 5, 11, 12 |
-| `audit-immutability.yml` | PR / push to `.agentile/audits/**` | No modification to existing audit files | 6 |
+The `Perms` column is the top-level `permissions:` each workflow declares;
+`Secrets` is the repo secrets it consumes. **Read these before copying
+`.github/` into your project** — two workflows can write to PRs, and one
+sends PR text to a third-party LLM endpoint.
+
+| Workflow | Triggers | Enforces | Rule(s) | Perms | Secrets |
+|----------|----------|----------|---------|-------|---------|
+| `lint-frontmatter.yml` | PR / push to .md | `check_frontmatter.py` on changed `.md` files | 12 | `contents: read` | — |
+| `lint-workflows.yml` | PR / push to `.github/workflows/**` | `actionlint` on workflow YAML | (supply chain hygiene) | `contents: read` | — |
+| `ratchet-check.yml` | every PR / push to main | All four ratchets | 3, 10, 12, tripwire discipline | `contents: read` | — |
+| `tripwires.yml` | every PR / push to main | `check_no_unwraps`, `check_no_mocks`, Semgrep, frontmatter-on-added | 2, 5, 11, 12 | `contents: read` | — |
+| `audit-immutability.yml` | PR / push to `.agentile/audits/**` | No modification to existing audit files | 6 | `contents: read` | — |
+| `claim-grade.yml` | PR / `workflow_dispatch` | AI claim-compression grader (shadow mode) | (honesty gate) | `contents: read`, **`pull-requests: write`** | **`ANTHROPIC_API_KEY` / `OPENAI_API_KEY`** (sends PR text off-platform) |
+| `data-source-check.yml` | PR / `workflow_dispatch` | Data-source provenance check (shadow mode) | (Rule 11 support) | `contents: read`, **`pull-requests: write`** | — |
+| `benchmark-nightly.yml` | schedule / `workflow_dispatch` | Nightly benchmark harness | (perf regression) | `contents: read` | — |
 
 ## Non-GitHub CI
 
@@ -63,11 +71,17 @@ cancel each other.
 
 ## Permissions
 
-All workflows declare `permissions: contents: read` at the top
-level — least-privilege by default. None of the agentile-shipped
-workflows need write permissions; if a project adds workflows that
-do (e.g. for auto-labeling), they should declare permissions
-explicitly per-job.
+Every workflow declares an explicit top-level `permissions:` block —
+none inherit the default token scope. Six workflows are
+`contents: read` only. **Two — `claim-grade.yml` and
+`data-source-check.yml` — additionally declare `pull-requests: write`**
+so they can post a comment on the PR. **`claim-grade.yml` also consumes
+`ANTHROPIC_API_KEY` / `OPENAI_API_KEY` and sends PR title/body/commit
+text to that third-party LLM endpoint.** If you adopt these workflows,
+know that before you copy `.github/` in: they can comment on any PR
+using the repo token, and one makes an outbound network call under a
+repo secret. A project that does not want the AI grader should delete
+`claim-grade.yml` (and its secrets) rather than leave it inert.
 
 ## See also
 

@@ -38,6 +38,10 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Run actionlint
-        uses: docker://rhysd/actionlint:latest
+        # SUPPLY CHAIN: pin to an immutable version rather than `:latest`, which
+        # Docker Hub can republish at will (arbitrary code in every adopter's
+        # CI). OWNER: replace the version tag with a `@sha256:<digest>` pin for
+        # full immutability once a digest can be resolved online.
+        uses: docker://rhysd/actionlint:1.7.7
         with:
           args: -color
