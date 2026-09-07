@@ -29,6 +29,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "index"))
 from _common import find_project_root  # type: ignore  # noqa: E402
 from _baseline import load_baseline  # type: ignore  # noqa: E402
+from _vacuity import require_nonempty, vacuous_exit  # type: ignore  # noqa: E402
 
 PROJECT_ROOT = find_project_root()
 
@@ -74,6 +75,8 @@ def main() -> int:
         return 1
     if current > base_count:
         print(f"Spec count grew by {current - base_count} (good).")
+    if current == 0 and base_count == 0:
+        return vacuous_exit("TLA+ specs", require_nonempty())
     return 0
 
 

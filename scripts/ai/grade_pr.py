@@ -37,6 +37,33 @@ from _common import find_project_root  # type: ignore  # noqa: E402
 PROJECT_ROOT = find_project_root()
 GRADER = PROJECT_ROOT / "scripts" / "ai" / "grade_claim.py"
 
+# AG-B-004: verdicts that mean "I could not evaluate this claim". In strict
+# mode the gate must fail closed on these — an ungradeable claim is an
+# unknown, and the gate's answer to unknown must not be "approve". The
+# benign "empty" verdict (no claim text at all) is deliberately excluded.
+UNAVAILABLE_VERDICTS = frozenset({
+    "grader-unavailable", "provider-error", "parse-error", "grader-error",
+})
+
+
+def _md_escape(text: str) -> str:
+    """Neutralize model-authored text before it lands in a PR comment.
+
+    AG-B-004: the grader's ``reasons`` / ``verdict`` / ``suggested_rewrite``
+    are model output derived from attacker-controlled claim text, and the
+    comment is posted with ``pull-requests: write``. Escape the characters
+    that would let that text break out of a table cell or inject markup."""
+    if not isinstance(text, str):
+        text = str(text)
+    # Collapse newlines (they break table rows) and escape pipe + backtick +
+    # the HTML-significant characters. Not a full sanitizer — a deliberate
+    # denylist that keeps the comment readable while removing the breakouts.
+    text = text.replace("\r", " ").replace("\n", " ")
+    for ch, rep in (("\\", "\\\\"), ("|", "\\|"), ("`", "\\`"),
+                    ("<", "&lt;"), (">", "&gt;")):
+        text = text.replace(ch, rep)
+    return text
+
 
 def grade_one(text: str) -> dict[str, Any]:
     if not text.strip():
@@ -145,8 +172,8 @@ def render_markdown(per_claim: list[dict[str, Any]]) -> str:
     for entry in per_claim:
         g = entry["grade"]
         score = "—" if g.get("score") is None else str(g["score"])
-        verdict = g.get("verdict", "—")
-        reasons = "; ".join(g.get("reasons", []))[:200]
+        verdict = _md_escape(g.get("verdict", "—"))
+        reasons = _md_escape("; ".join(str(r) for r in g.get("reasons", []))[:200])
         lines.append(f"| {entry['kind']} | `{entry['identifier']}` | {score} | {verdict} | {reasons} |")
     lines.append("")
     suggestions = [
@@ -159,7 +186,8 @@ def render_markdown(per_claim: list[dict[str, Any]]) -> str:
         for e in suggestions:
             lines.append(f"**{e['kind']} `{e['identifier']}`:**")
             lines.append("")
-            lines.append("> " + e["grade"]["suggested_rewrite"].replace("\n", "\n> "))
+            rewrite = _md_escape(e["grade"]["suggested_rewrite"])
+            lines.append("> " + rewrite)
             lines.append("")
     return "\n".join(lines)
 
@@ -195,9 +223,17 @@ def main() -> int:
     p.add_argument("--title", help="PR title (inline)")
     p.add_argument("--body", help="PR body (inline)")
     p.add_argument("--strict", action="store_true",
-                   help="Exit 1 if any score < threshold (default: shadow mode, exit 0)")
+                   help="Exit 1 if any score < threshold OR any claim could "
+                        "not be graded (default: shadow mode, exit 0)")
     p.add_argument("--threshold", type=int, default=5,
                    help="Score below this triggers strict-mode failure (default: 5)")
+    p.add_argument("--allow-unavailable", action="store_true",
+                   help="In --strict mode, do NOT fail when a claim could not "
+                        "be graded (grader unavailable / provider / parse "
+                        "error). Off by default: strict fails closed on an "
+                        "ungradeable claim. Use only in the bootstrap window "
+                        "before an LLM provider is configured — enabling it "
+                        "restores the fail-open behavior AG-B-004 flagged.")
     p.add_argument("--out-json", help="Also write the JSON report to this path")
     args = p.parse_args()
 
@@ -230,7 +266,28 @@ def main() -> int:
             e for e in per_claim
             if e["grade"].get("score") is not None and e["grade"]["score"] < args.threshold
         ]
+        # AG-B-004: fail closed on claims that could not be graded. Previously
+        # a None score was silently skipped, so an attacker who made the model
+        # (or the pipeline) return no score — unset key, rate-limit, vendor
+        # down, non-JSON output — passed strict mode. "Unknown" is now a
+        # failure, not an approval.
+        unavailable = [
+            e for e in per_claim
+            if e["grade"].get("score") is None
+            and e["grade"].get("verdict") in UNAVAILABLE_VERDICTS
+        ]
         if bad:
+            print(f"STRICT FAIL: {len(bad)} claim(s) scored below "
+                  f"threshold {args.threshold}.", file=sys.stderr)
+        if unavailable and not args.allow_unavailable:
+            print(f"STRICT FAIL: {len(unavailable)} claim(s) could not be "
+                  "graded; strict mode fails closed on ungradeable claims "
+                  "(verdicts: "
+                  f"{sorted({e['grade'].get('verdict') for e in unavailable})}). "
+                  "Configure an LLM provider, or pass --allow-unavailable to "
+                  "opt back into the bootstrap-window fail-open.",
+                  file=sys.stderr)
+        if bad or (unavailable and not args.allow_unavailable):
             return 1
     return 0
 
