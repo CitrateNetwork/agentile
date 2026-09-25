@@ -1,10 +1,3 @@
----
-created: 2026-04-30T05:00:00Z
-branch: main
-author: agentile-skeleton
-status: active
----
-
 # `scripts/eval/baselines/` — benchmark run history
 
 > Per-run JSON snapshots produced by `benchmark_harness.sh`. Each

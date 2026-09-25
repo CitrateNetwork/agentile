@@ -1,11 +1,3 @@
----
-created: 2026-08-11T00:00:00Z
-branch: main
-author: Devin (GLM-5.2 High) + Thales
-status: active
-sprint: AGNOSTIC-01-agent-skills-and-agents-md
----
-
 # `.agents/skills/` — Agentile methodology as cross-harness skills
 
 This directory packages the Agentile methodology's workflow commands as
