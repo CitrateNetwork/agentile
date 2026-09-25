@@ -1,10 +1,3 @@
----
-created: 2026-04-30T05:00:00Z
-branch: main
-author: agentile-skeleton
-status: active
----
-
 # `scripts/eval/` — human eval, data-source check, benchmark harness
 
 > The "softer" enforcement layer. Where `scripts/ci/` enforces

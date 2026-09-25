@@ -1,10 +1,3 @@
----
-created: 2026-04-30T05:00:00Z
-branch: main
-author: agentile-skeleton
-status: active
----
-
 # `scripts/eval/scenarios/` — benchmark scenario adapters
 
 > Drop executable scenarios in this directory. The harness runs each
