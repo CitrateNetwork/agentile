@@ -1,6 +1,6 @@
 # `.github/workflows/` — CI workflows
 
-> Eight GitHub Actions workflows that wire the agentile rules and
+> Nine GitHub Actions workflows that wire the agentile rules and
 > ratchets into PR-time enforcement. Each workflow invokes a script
 > from `scripts/ci/` or `scripts/semgrep/`; the workflow itself only
 > handles GitHub-side glue (when to run, what to check out, how to
@@ -18,11 +18,12 @@ sends PR text to a third-party LLM endpoint.
 | `lint-frontmatter.yml` | PR / push to .md | `check_frontmatter.py` on changed `.md` files | 12 | `contents: read` | — |
 | `lint-workflows.yml` | PR / push to `.github/workflows/**` | `actionlint` on workflow YAML | (supply chain hygiene) | `contents: read` | — |
 | `ratchet-check.yml` | every PR / push to main | All four ratchets | 3, 10, 12, tripwire discipline | `contents: read` | — |
-| `tripwires.yml` | every PR / push to main | `check_no_unwraps`, `check_no_mocks`, Semgrep, frontmatter-on-added | 2, 5, 11, 12 | `contents: read` | — |
+| `tripwires.yml` | every PR / push to main | `check_no_unwraps`, `check_no_mocks`, Semgrep, frontmatter-on-added, the `tests/` regression suite | 2, 5, 11, 12 | `contents: read` | — |
 | `audit-immutability.yml` | PR / push to `.agentile/audits/**` | No modification to existing audit files | 6 | `contents: read` | — |
 | `claim-grade.yml` | PR / `workflow_dispatch` | AI claim-compression grader (shadow mode) | (honesty gate) | `contents: read`, **`pull-requests: write`** | **`ANTHROPIC_API_KEY` / `OPENAI_API_KEY`** (sends PR text off-platform) |
 | `data-source-check.yml` | PR / `workflow_dispatch` | Data-source provenance check (shadow mode) | (Rule 11 support) | `contents: read`, **`pull-requests: write`** | — |
 | `benchmark-nightly.yml` | schedule / `workflow_dispatch` | Nightly benchmark harness | (perf regression) | `contents: read` | — |
+| `merge-gate.yml` | every PR / push to main / merge queue | Producers for the two required checks: `secret-scan` (pinned gitleaks over the change) and `ci` (fails if any other check on the commit failed) | (merge gate) | `contents: read` (+ `checks: read` on the `ci` job) | — |
 
 ## Non-GitHub CI
 
@@ -72,8 +73,8 @@ cancel each other.
 ## Permissions
 
 Every workflow declares an explicit top-level `permissions:` block —
-none inherit the default token scope. Six workflows are
-`contents: read` only. **Two — `claim-grade.yml` and
+none inherit the default token scope. Seven workflows are
+`contents: read` only (`merge-gate.yml`'s `ci` job adds `checks: read`). **Two — `claim-grade.yml` and
 `data-source-check.yml` — additionally declare `pull-requests: write`**
 so they can post a comment on the PR. **`claim-grade.yml` also consumes
 `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` and sends PR title/body/commit
