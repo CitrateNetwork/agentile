@@ -264,8 +264,10 @@ else
 fi
 
 # Also seed .claude/settings.json from template (gitignored target).
+seeded_settings=0
 if [[ ! -f "$PROJECT_ROOT/.claude/settings.json" ]] && [[ -f "$PROJECT_ROOT/.claude/settings.json.template" ]]; then
   cp "$PROJECT_ROOT/.claude/settings.json.template" "$PROJECT_ROOT/.claude/settings.json"
+  seeded_settings=1
   echo "       Seeded .claude/settings.json from template (gitignored)."
 fi
 
@@ -274,6 +276,7 @@ fi
 # ---------------------------------------------------------------------
 
 placeholder_dir="$AGENTILE/sprints/active/YYYY-XX-XX-sprint-0-bootstrap"
+sprint_rel=""
 if [[ -d "$placeholder_dir" ]]; then
   new_dir="$AGENTILE/sprints/active/${DAY_ZERO_DATE}-sprint-0-bootstrap"
   if [[ ! -e "$new_dir" ]]; then
@@ -289,6 +292,7 @@ if [[ -d "$placeholder_dir" ]]; then
       sed -i.bak "s/| \*\*Start Date\*\* | YYYY-MM-DD |/| **Start Date** | ${DAY_ZERO_DATE} |/" "$sprint_md"
       rm -f "$sprint_md.bak"
     fi
+    sprint_rel=".agentile/sprints/active/${DAY_ZERO_DATE}-sprint-0-bootstrap"
   fi
 else
   echo "[5/9] No Sprint 0 placeholder to rename."
@@ -387,7 +391,28 @@ fi
 # ---------------------------------------------------------------------
 
 echo "[9/9] Staging bootstrap changes ..."
-git -C "$PROJECT_ROOT" add -A 2>/dev/null || true
+# Stage only the paths this script creates or updates. Never stage the
+# adopter's whole tree: it may hold credentials or other local files.
+stage_bootstrap_path() {
+  local rel_path="$1"
+  if [[ -e "$PROJECT_ROOT/$rel_path" || -L "$PROJECT_ROOT/$rel_path" ]]; then
+    git -C "$PROJECT_ROOT" add -A -- "$rel_path" || echo "       WARNING: could not stage $rel_path" >&2
+  fi
+}
+stage_bootstrap_path ".agentile/CONFIG.md"
+stage_bootstrap_path ".agentile/PRODUCT_SPEC.md"
+stage_bootstrap_path ".agentile/coverage/BASELINE.md"
+stage_bootstrap_path ".agentile/coverage/baseline.json"
+stage_bootstrap_path ".agentile/INDEX"
+stage_bootstrap_path "CLAUDE.md"
+if [[ "$seeded_settings" -eq 1 ]]; then
+  stage_bootstrap_path ".claude/settings.json"
+fi
+if [[ -n "$sprint_rel" ]]; then
+  stage_bootstrap_path "$sprint_rel"
+  # Record the placeholder's removal too (covers the plain-mv fallback).
+  git -C "$PROJECT_ROOT" add -A -- ".agentile/sprints/active/YYYY-XX-XX-sprint-0-bootstrap" 2>/dev/null || true
+fi
 if [[ -z "$(git -C "$PROJECT_ROOT" diff --cached --name-only 2>/dev/null)" ]]; then
   echo "       Nothing to commit."
 else
